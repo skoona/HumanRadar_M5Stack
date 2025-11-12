@@ -1,0 +1,45 @@
+{
+    "alarm": {
+        "name": "Motion",
+        "sources": [
+            {
+                "device": "70A7410B7593",
+                "type": "include"
+            },
+            {
+                "device": "E063DA00602B",
+                "type": "include"
+            },
+            {
+                "device": "70A7413F0FD7",
+                "type": "include"
+            },
+            {
+                "device": "F4E2C60C4E6A",
+                "type": "include"
+            },
+            {
+                "device": "70A7410B7643",
+                "type": "include"
+            }
+        ],
+        "conditions": [
+            {
+                "condition": {
+                    "type": "is",
+                    "source": "motion"
+                }
+            }
+        ],
+        "triggers": [
+            {
+                "key": "motion",
+                "device": "70A7413F0FD7",
+                "eventId": "6913f75103d93703e4001aad",
+                "timestamp": 1762916178013
+            }
+        ],
+        "thumbnail":"data:image/jpeg;base64,"
+        }    
+    }
+}

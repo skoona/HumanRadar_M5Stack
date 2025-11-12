@@ -1,0 +1,12 @@
+menu "Example Configuration"
+    config EXAMPLE_HTTP_ENDPOINT
+        string "UniFi Protect Endpoint"
+        default "10.100.1.1"
+        help
+            Target endpoint host-name for the example to use.
+    config EXAMPLE_ENABLE_RESPONSE_BUFFER_DUMP
+        bool "Enable logging response buffer from HTTP event handler"
+        default y
+        help
+            HTTP response is accumulated in output_buffer. Enable this config to print the accumulated response
+endmenu
