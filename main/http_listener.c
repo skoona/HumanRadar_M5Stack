@@ -15,7 +15,39 @@
 #include <cJSON.h>
 
 static const char *TAG = "LISTENER";
-extern esp_err_t handleAlarms(char *device);
+extern QueueHandle_t urlQueue;
+
+/* Gather values from menuconfig
+   - lookup device and generate URL
+   - submit URL to cause image display
+   - get constants from config.json in future
+*/
+esp_err_t handleAlarms(char *device) {
+	char *alarm_id = NULL;
+
+	if (strcmp(CONFIG_CAMERA_FRONT_DOOR_MAC, device) == 0) { // front door
+		alarm_id = CONFIG_CAMERA_FRONT_DOOR_ID;
+	} else if (strcmp(CONFIG_CAMERA_GARAGE_VIEW_MAC, device) == 0) { // Garage
+		alarm_id = CONFIG_CAMERA_GARAGE_VIEW_ID;
+	} else if (strcmp(CONFIG_CAMERA_KITCHEN_VIEW_MAC, device) ==
+			   0) { // Kitchen and Dining
+		alarm_id = CONFIG_CAMERA_KITCHEN_VIEW_ID;
+	} else if (strcmp(CONFIG_CAMERA_SOUTH_VIEW_MAC, device) ==
+			   0) { // South View
+		alarm_id = CONFIG_CAMERA_SOUTH_VIEW_ID;
+	} else if (strcmp(CONFIG_CAMERA_EAST_VIEW_MAC, device) == 0) { // East View
+		alarm_id = CONFIG_CAMERA_EAST_VIEW_ID;
+	} else {
+		ESP_LOGE(TAG, "Unknown Device: %s", device);
+		return ESP_FAIL;
+	}
+
+	char url[254];
+
+	sprintf(url, "%s/%s/snapshot", CONFIG_PROTECT_API_ENDPOINT, alarm_id);
+	xQueueSend(urlQueue, url, 10);
+	return ESP_OK;
+}
 
 esp_err_t processAlarmResponse(char *path, cJSON * root, char *target) {
 	cJSON *alarm = NULL;
@@ -59,21 +91,21 @@ esp_err_t handleWebhookResult(char *path, char *content, char *content_type, siz
 		return ESP_FAIL;
 	}
 
+	esp_err_t ret = ESP_OK;
 	if (processAlarmResponse(path, json, device) == ESP_OK) {	
-		cJSON_Delete(json);
-		return handleAlarms(device);		
-	} else {
-		char *json_string = cJSON_Print(json);
-		if (json_string == NULL) {
-			ESP_LOGI(TAG, "cJSON_Print Failed: [L=%d]%s\n", bytes_received, content);
-			cJSON_Delete(json);
-			return ESP_FAIL;
-		}
-		cJSON_free(json_string);
+		ret = handleAlarms(device);		
 	}
+
+	char *json_string = cJSON_Print(json);
+	if (json_string == NULL) {
+		ESP_LOGI(TAG, "cJSON_Print Failed: [L=%d]%s\n", bytes_received, content);
+		cJSON_Delete(json);
+		return ESP_FAIL;
+	}
+	cJSON_free(json_string);	
 	cJSON_Delete(json);
 
-	return ESP_OK;
+	return ret;
 }
 
 // URI handler for the root path "/"

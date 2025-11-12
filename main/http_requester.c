@@ -24,13 +24,9 @@
 #include "esp_http_client.h"
 #include <cJSON.h>
 
-
-#define MAX_HTTP_RECV_BUFFER 1024
-#define MAX_HTTP_OUTPUT_BUFFER 4096
 #define X_API_KEY  "8tBVk1cz8khtBclWJ4SqnQcY47m1Vzdu"
 
 static const char *TAG = "REQUESTER";
-
 extern esp_err_t writeBinaryImageFile(char *path, void *buffer, int bufLen);
 
 static esp_err_t _http_event_handler(esp_http_client_event_t *evt) {
@@ -56,11 +52,6 @@ static esp_err_t _http_event_handler(esp_http_client_event_t *evt) {
 			break;
         case HTTP_EVENT_ON_DATA:
             ESP_LOGD(TAG, "HTTP_EVENT_ON_DATA, len=%d", evt->data_len);
-            // Clean the buffer in case of a new request
-            if (output_len == 0 && evt->user_data) {
-                // we are just starting to copy the output data into the use
-                memset(evt->user_data, 0, MAX_HTTP_OUTPUT_BUFFER);
-            }
             /*
              *  Check for chunked encoding is added as the URL for chunked encoding used in this example returns binary data.
              *  However, event handler can also be used in case chunked encoding is used.
@@ -68,28 +59,20 @@ static esp_err_t _http_event_handler(esp_http_client_event_t *evt) {
             if (!esp_http_client_is_chunked_response(evt->client)) {
                 // If user_data buffer is configured, copy the response into the buffer
                 int copy_len = 0;
-                if (evt->user_data) {
-                    // The last byte in evt->user_data is kept for the NULL character in case of out-of-bound access.
-                    copy_len = MIN(evt->data_len, (MAX_HTTP_OUTPUT_BUFFER - output_len));
-                    if (copy_len) {
-                        memcpy(evt->user_data + output_len, evt->data, copy_len);
-                    }
-                } else {
-                    int content_len = esp_http_client_get_content_length(evt->client);
+                int content_len = esp_http_client_get_content_length(evt->client);
+                if (output_buffer == NULL) {
+                    // We initialize output_buffer with 0 because it is used by strlen() and similar functions therefore should be null terminated.
+                    output_buffer = (char *) calloc(content_len + 4, sizeof(char)); 
+                    output_len = 0;
                     if (output_buffer == NULL) {
-                        // We initialize output_buffer with 0 because it is used by strlen() and similar functions therefore should be null terminated.
-						output_buffer = (char *) calloc(content_len + 4, sizeof(char)); 
-                        output_len = 0;
-                        if (output_buffer == NULL) {
-                            ESP_LOGE(TAG, "Failed to allocate memory for output buffer");
-                            return ESP_FAIL;
-                        }
-                    }
-                    copy_len = MIN(evt->data_len, (content_len - output_len));
-                    if (copy_len) {
-                        memcpy(output_buffer + output_len, evt->data, copy_len);
+                        ESP_LOGE(TAG, "Failed to allocate memory for output buffer");
+                        return ESP_FAIL;
                     }
                 }
+                copy_len = MIN(evt->data_len, (content_len - output_len));
+                if (copy_len) {
+                    memcpy(output_buffer + output_len, evt->data, copy_len);
+                }               
                 output_len += copy_len;
             }
 
@@ -177,7 +160,7 @@ void unifi_async_api_request(esp_http_client_method_t method,
     };
     ESP_LOGI(TAG, "HTTPS async requests =>");
     esp_http_client_handle_t client = esp_http_client_init(&config);
-	esp_http_client_set_header(client, "X-API-KEY", X_API_KEY);
+	esp_http_client_set_header(client, "X-API-KEY", CONFIG_PROTECT_API_TOKEN);
 
     esp_err_t err;
     while (1) {
@@ -208,7 +191,7 @@ void unifi_api_request_gt2k(esp_http_client_method_t method,
     };
     ESP_LOGI(TAG, "HTTPS request with hostname and path => %s\n", path); // CONFIG_EXAMPLE_HTTP_ENDPOINT);
     esp_http_client_handle_t client = esp_http_client_init(&config);
-	esp_http_client_set_header(client, "X-API-KEY", X_API_KEY);
+	esp_http_client_set_header(client, "X-API-KEY", CONFIG_PROTECT_API_TOKEN);
     esp_err_t err = esp_http_client_perform(client);
 
     if (err == ESP_OK) {
@@ -221,61 +204,3 @@ void unifi_api_request_gt2k(esp_http_client_method_t method,
     esp_http_client_cleanup(client);
 }
 
-void unifi_api_request_le2k(esp_http_client_method_t method,
-								   char *path) {
-	// Declare local_response_buffer with size (MAX_HTTP_OUTPUT_BUFFER + 1) to prevent out of bound access when
-    // it is used by functions like strlen(). The buffer should only be used upto size MAX_HTTP_OUTPUT_BUFFER
-    char *local_response_buffer= NULL;
-	local_response_buffer = calloc(MAX_HTTP_OUTPUT_BUFFER+4, sizeof(char));
- 	// local_response_buffer = heap_caps_malloc(MAX_HTTP_OUTPUT_BUFFER+4, MALLOC_CAP_DMA | MALLOC_CAP_SPIRAM);  //calloc(MAX_HTTP_OUTPUT_BUFFER+4,sizeof(char));
-	if (local_response_buffer==NULL) {
-		ESP_LOGE(TAG, "local_response_buffer failed.");
-		return;
-	}
-
-    esp_http_client_config_t config = {
-        .url = path,
-		.method = method,
-        .event_handler = _http_event_handler,
-		.transport_type = HTTP_TRANSPORT_OVER_SSL,
-		.skip_cert_common_name_check = true,
-        .user_data = local_response_buffer,        // Pass address of local buffer to get response
-        .disable_auto_redirect = true,
-    };
-    ESP_LOGI(TAG, "HTTP request with url => %s\n", path);
-    esp_http_client_handle_t client = esp_http_client_init(&config);
-
-	esp_http_client_set_header(client, "X-API-KEY", X_API_KEY);
-    esp_err_t err = esp_http_client_perform(client);
-    if (err == ESP_OK) {
-        ESP_LOGI(TAG, "HTTP GET Status = %d, content_length = %"PRId64,
-                esp_http_client_get_status_code(client),
-                esp_http_client_get_content_length(client));
-    } else {
-        ESP_LOGE(TAG, "HTTP GET request failed: %s", esp_err_to_name(err));
-    }
-
-	cJSON *json = cJSON_Parse(local_response_buffer);
-	if (json == NULL) {
-		ESP_LOGI(TAG, "cJSON_Parse Failed: [L=%d]%s\n", esp_http_client_get_content_length(client),
-				 local_response_buffer);
-		free(local_response_buffer);
-		return;
-	}
-	char *json_string = cJSON_Print(json);
-	if (json_string == NULL) {
-		ESP_LOGI(TAG, "cJSON_Print Failed: [L=%d]%s\n", esp_http_client_get_content_length(client),local_response_buffer);
-		cJSON_Delete(json);
-		free(local_response_buffer);
-		return;
-	}
-
-	int rsp_count = esp_http_client_get_content_length(client);
-	ESP_LOGI(TAG, "Notification Received: [L=%d][R=%d]%s\n", rsp_count,strlen(json_string), json_string);
-
-	cJSON_free(json_string);
-	cJSON_Delete(json);
-	free(local_response_buffer);
-
-	esp_http_client_cleanup(client);
-}

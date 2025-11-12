@@ -1,14 +1,7 @@
-/*
- * SPDX-FileCopyrightText: 2021-2022 Espressif Systems (Shanghai) CO LTD
- *
- * SPDX-License-Identifier: CC0-1.0
- */
-
 /**
- * @file
+ * @file main.c
  * @brief BSP Display Example
- * @details Show an image on the screen with a simple startup animation (LVGL)
- * @example https://espressif.github.io/esp-launchpad/?flashConfigURL=https://espressif.github.io/esp-bsp/config.toml&app=display-
+ * @details Show an related image on the screen after a, Protect API sends an Alarm webhook.
  */
 
 #include "bsp/esp-bsp.h"
@@ -18,10 +11,10 @@
 #include "esp_lv_decoder.h"
 #include "esp_netif.h"
 #include "esp_system.h"
+#include "esp_timer.h"
 #include "freertos/idf_additions.h"
 #include "freertos/projdefs.h"
 #include "lvgl.h"
-#include "mbedtls/base64.h"
 #include "nvs_flash.h"
 #include "protocol_examples_common.h"
 #include <dirent.h>
@@ -34,8 +27,8 @@
 #include <string.h>
 #include <sys/stat.h>
 
-static QueueHandle_t imageQueue;
-static QueueHandle_t urlQueue;
+QueueHandle_t imageQueue;
+QueueHandle_t urlQueue;
 
 extern void	ui_skoona_page(lv_obj_t *scr);
 
@@ -45,15 +38,12 @@ extern httpd_handle_t start_http_listener(void);
 // Example Wi-Fi initialization (replace with your actual Wi-Fi setup)
 extern void wifi_init_sta(void);
 extern void unifi_async_api_request(esp_http_client_method_t method, char * path);
-extern void unifi_api_request_le2k(esp_http_client_method_t method, char * path);
 extern void unifi_api_request_gt2k(esp_http_client_method_t method, char * path);
 esp_err_t fileList();
 esp_err_t writeBinaryImageFile(char *path, void *buffer, int bufLen);
 
 
 static const char *TAG = "sknSensors";
-static lv_obj_t *screen = NULL;
-int global_image_scale = 80;
 
 /* List storage contents to console 
 */
@@ -122,21 +112,19 @@ static void btn_handler(void *button_handle, void *usr_data)
 	switch (button_index) {
 	case 0:
 		// Get All Cameras
-		unifi_async_api_request(HTTP_METHOD_GET, "https://10.100.1.1/proxy/protect/integration/v1/cameras");
+		unifi_async_api_request(HTTP_METHOD_GET, CONFIG_PROTECT_API_ENDPOINT);
 		break;
 	case 1:
         if (oneShot) {
-		    // Get Garage Snapshot -- Binary
-            global_image_scale = 192;
-            strcpy(url,"https://10.100.1.1/proxy/protect/integration/v1/cameras/65b2e8d400858f03e4014f3a/snapshot");
+		    // Get Garage Snapshot -- Binary            
+            sprintf(url,"%s/65b2e8d400858f03e4014f3a/snapshot", CONFIG_PROTECT_API_ENDPOINT);
 	        xQueueSend(urlQueue, url, 10);
         }
         oneShot = true;
 		break;
 	case 2:
-	    // Get Front Door Snapshot -- BINARY
-        global_image_scale = 80;
-		strcpy(url, "https://10.100.1.1/proxy/protect/integration/v1/cameras/6096c66202197e0387001879/snapshot");
+	    // Get Front Door Snapshot -- BINARY        
+		sprintf(url, "%s/6096c66202197e0387001879/snapshot", CONFIG_PROTECT_API_ENDPOINT);
 		xQueueSend(urlQueue, url, 10);
 		break;
 }
@@ -144,53 +132,23 @@ static void btn_handler(void *button_handle, void *usr_data)
     ESP_LOGI(TAG, "Button %d pressed", button_index);
 }
 
-/* Gather hash from JSON config.json
-   - lookup device and generate URL
-   - submit URL to cause image display
-   - get constants from config.json in future
-*/
-esp_err_t handleAlarms(char *device) {
-    char *alarm_id = NULL;
-
-	if (strcmp("E063DA00602B", device) == 0) { // front door
-		alarm_id = "6096c66202197e0387001879";
-	} else if (strcmp("70A7413F0FD7", device) == 0) { // Garage
-		alarm_id = "65b2e8d400858f03e4014f3a";
-	} else if (strcmp("F4E2C60C4E6A", device) == 0) { // Kitchen and Dining
-		alarm_id = "68cf46180060ac03e42f9125";
-	} else if (strcmp("70A7410B7643", device) == 0) { // South View
-		alarm_id = "6355cf55027c9603870029ed";
-	} else if (strcmp("70A7410B7593", device) == 0) { // East View
-		alarm_id = "63559ad5007a960387002880";
-	} else {
-        ESP_LOGE(TAG, "Unknown Device: %s", device);
-        return ESP_FAIL;
-    }
-
-	global_image_scale = 80;
-
-    // lv_obj_t *spinner = lv_spinner_create(lv_scr_act());
-	// lv_spinner_set_anim_params(spinner,1000, 60);
-    // lv_obj_set_size(spinner, 100, 100);
-	// lv_obj_center(spinner);
-
-	char url[254];
-
-    sprintf(url,"https://10.100.1.1/proxy/protect/integration/v1/cameras/%s/snapshot", alarm_id);
-	xQueueSend(urlQueue, url, 10);
-	return ESP_OK;
-}
-
 static void vURLTask(void *pvParameters) {
 	char url[288]; // Used to receive data
 	BaseType_t xReturn; // Used to receive return value
     QueueHandle_t urlQueue = pvParameters;
-
+	vTaskDelay(pdMS_TO_TICKS(10000));
 	while (1) {
 		xReturn = xQueueReceive(urlQueue, url, pdMS_TO_TICKS(3000));
 		if (xReturn == pdTRUE) {
 			ESP_LOGI("URLTask", "Received URL: %s", url);
-			unifi_api_request_gt2k(HTTP_METHOD_GET, url);
+			bsp_display_lock(0);
+			    lv_obj_t *spinner = lv_spinner_create(lv_scr_act());
+			    lv_spinner_set_anim_params(spinner,500, 60);
+			    lv_obj_set_size(spinner, 100, 100);
+			    lv_obj_center(spinner);
+			bsp_display_unlock();
+			
+            unifi_api_request_gt2k(HTTP_METHOD_GET, url);			            
 		}
 		vTaskDelay(10);
 	}
@@ -203,7 +161,7 @@ static void vImageTask(void *pvParameters) {
 	QueueHandle_t ImageQueue = pvParameters;
 	static lv_style_t style_max_height;
 	static lv_style_t style_max_width;
-
+	vTaskDelay(pdMS_TO_TICKS(10000));
 	while (1) {
 		xReturn = xQueueReceive(ImageQueue, path, pdMS_TO_TICKS(3000));
 		if (xReturn == pdTRUE) {
@@ -211,33 +169,44 @@ static void vImageTask(void *pvParameters) {
 			lv_obj_t *img = lv_img_create(lv_screen_active());
 
 			if (img != NULL) {
-                lv_obj_set_style_bg_color(lv_screen_active(), lv_color_white(), LV_PART_MAIN);
+				bsp_display_lock(0);
+
+				lv_obj_set_style_bg_color(lv_screen_active(), lv_color_white(), LV_PART_MAIN);
 				sprintf(image, "S:%s", path); 
 				lv_img_set_src(img, image); // 240 * 320                
 
                 lv_style_init(&style_max_height);
-                lv_style_set_y(&style_max_height, 315);
+                lv_style_set_y(&style_max_height, 316);
 				lv_obj_set_height(img, lv_pct(100));
 				lv_obj_add_style(img, &style_max_height, LV_STATE_DEFAULT);
 
 				lv_style_init(&style_max_width);
-                lv_style_set_y(&style_max_width, 235);
+                lv_style_set_y(&style_max_width, 236);
                 lv_obj_set_width(img, lv_pct(100));
                 lv_obj_add_style(img, &style_max_height, LV_STATE_DEFAULT);
 
 				lv_image_set_inner_align(img, LV_IMAGE_ALIGN_STRETCH);
-				// lv_image_set_scale(img, global_image_scale); // 80
 				lv_obj_center(img);
+
+				bsp_display_unlock();
 			} else {
 				ESP_LOGE(TAG, "Failed to create image for %s", path);
 			}
 		} 
+        
 		vTaskDelay(10);
 	}
 }
 
+// serivce lvgl events time requirements
+uint32_t milliseconds() {
+    int64_t v64 = esp_timer_get_time();
+    return (v64 / 1000);
+}
+
 void app_main(void)
 {
+	static lv_obj_t *screen = NULL;
 
 	vTaskDelay(pdMS_TO_TICKS(4000));
 
@@ -255,8 +224,8 @@ void app_main(void)
 	imageQueue = xQueueCreate(16, 256);
 	urlQueue = xQueueCreate(16, 256);
 	if (imageQueue != NULL) {
-		xTaskCreatePinnedToCore(vImageTask, "ImageTask", 4096, imageQueue, 2, NULL, 0);
-		xTaskCreatePinnedToCore(vURLTask, "vURLTask", 4096, urlQueue, 2, NULL, 0);
+		xTaskCreatePinnedToCore(vImageTask, "ImageTask", 4096, imageQueue, 2, NULL, tskNO_AFFINITY);
+		xTaskCreatePinnedToCore(vURLTask, "vURLTask", 4096, urlQueue, 2, NULL, tskNO_AFFINITY);
 	} else {
 		ESP_LOGE(TAG, "Display Queues Failed.");
 	}
@@ -272,22 +241,26 @@ void app_main(void)
         .double_buffer = 0,
         .flags = {
             .buff_dma = true,
+            .buff_spiram = true,
         }
     };
-    bsp_display_start_with_config(&cfg);
+    lv_display_t *disp = bsp_display_start_with_config(&cfg);
 
     /* Set display brightness to 100% */
     bsp_display_backlight_on();
+	bsp_display_brightness_set(100);
 
-    /* Mount SPIFFS */
-    bsp_spiffs_mount();
-
-    // lv_split_jpeg_init();
+	/* Mount SPIFFS */
+	bsp_spiffs_mount();
+    // #define LV_USE_SJPG 1
+	// lv_split_jpeg_init();
     esp_lv_decoder_handle_t decoder_handle = NULL;
     esp_lv_decoder_init(&decoder_handle); //Initialize this after lvgl starts
+	
+    // lv_tick_set_cb(milliseconds);
 
-    bsp_display_lock(0);
-	screen = lv_disp_get_scr_act(NULL);
+	bsp_display_lock(0);
+	screen = lv_disp_get_scr_act(disp);
 
 	ui_skoona_page(screen);
 
@@ -305,11 +278,9 @@ void app_main(void)
 
     // show spiffs contents
     fileList();
-
-	vTaskDelay(pdMS_TO_TICKS(10000));
+	
 	// ESP_LOGI(TAG, "Service LVGL loop");
 	// while (1) {
-	// 	/* Provide updates to currently-displayed Widgets here. */
 	// 	lv_timer_handler();
 	// 	vTaskDelay(pdMS_TO_TICKS(5));
 	// }
