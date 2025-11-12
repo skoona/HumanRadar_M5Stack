@@ -34,12 +34,13 @@
         "triggers": [
             {
                 "key": "motion",
-                "device": "70A7413F0FD7",
-                "eventId": "6913f75103d93703e4001aad",
-                "timestamp": 1762916178013
+                "device": "70A7410B7593",
+                "eventId": "6914aa9900d63703e4027139",
+                "timestamp": 1762962073231
             }
         ],
-        "thumbnail":"data:image/jpeg;base64,"
-        }    
-    }
+        "eventPath": "/protect/events/event/6914aa9900d63703e4027139",
+        "eventLocalLink": "https://10.100.1.1/protect/events/event/6914aa9900d63703e4027139"
+    },
+    "timestamp": 1762962073246
 }

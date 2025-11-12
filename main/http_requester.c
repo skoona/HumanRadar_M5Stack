@@ -78,10 +78,7 @@ static esp_err_t _http_event_handler(esp_http_client_event_t *evt) {
                     int content_len = esp_http_client_get_content_length(evt->client);
                     if (output_buffer == NULL) {
                         // We initialize output_buffer with 0 because it is used by strlen() and similar functions therefore should be null terminated.
-						// output_buffer = (char *)heap_caps_malloc(
-						// 	content_len + 4,
-						// 	MALLOC_CAP_SPIRAM | MALLOC_CAP_DMA);
-						output_buffer = (char *) calloc(content_len + 4,	sizeof(char)); 
+						output_buffer = (char *) calloc(content_len + 4, sizeof(char)); 
                         output_len = 0;
                         if (output_buffer == NULL) {
                             ESP_LOGE(TAG, "Failed to allocate memory for output buffer");
@@ -109,6 +106,7 @@ static esp_err_t _http_event_handler(esp_http_client_event_t *evt) {
 					free(output_buffer);
 					output_buffer = NULL;
 					output_len = 0;
+                    image = false;
 					return rc;
 				}
 
@@ -134,11 +132,6 @@ static esp_err_t _http_event_handler(esp_http_client_event_t *evt) {
 					return ESP_FAIL;
 				}
 				int json_len = strlen(json_string);
-				// while (json_string[json_len++] != '\0') {
-                //     if (json_len > output_len) {
-                //         break;
-                //     }
-                // }
 
 				ESP_LOGI(TAG, "Notification Received: [L=%d][R=%d]%s\n",
 						 output_len, json_len, json_string);

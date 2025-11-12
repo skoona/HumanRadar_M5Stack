@@ -15,55 +15,64 @@
 #include <cJSON.h>
 
 static const char *TAG = "LISTENER";
-extern int global_image_scale;
-extern esp_err_t writeBinaryImageFile(char *path, void *buffer, int bufLen);
-extern esp_err_t writeBase64Buffer(char *path, const unsigned char *input_buffer );
+extern esp_err_t handleAlarms(char *device);
 
-esp_err_t processAlarmResponse(char *path, cJSON * root) {
+esp_err_t processAlarmResponse(char *path, cJSON * root, char *target) {
 	cJSON *alarm = NULL;
-	cJSON *thumbnail = NULL;
-	global_image_scale = 192;
+	cJSON *triggers = NULL;
+	cJSON *elem = NULL;
+	cJSON *device = NULL;
 
-		alarm = cJSON_GetObjectItemCaseSensitive(root, "alarm");
+	alarm = cJSON_GetObjectItemCaseSensitive(root, "alarm");
 	if (alarm == NULL) {
 		ESP_LOGE(TAG, "Alarm element not found");
 		return ESP_FAIL;
 	}
-
-	thumbnail = cJSON_GetObjectItemCaseSensitive(alarm, "thumbnail");
-	if (thumbnail == NULL || !cJSON_IsString(thumbnail) || (thumbnail->valuestring == NULL)) {
-		ESP_LOGE(TAG, "Thumbnail element not found");
+	triggers = cJSON_GetObjectItemCaseSensitive(alarm, "triggers");
+	if (triggers == NULL) {
+		ESP_LOGE(TAG, "Triggers element not found");
+		return ESP_FAIL;
+	}	
+	elem = cJSON_GetArrayItem(triggers, 0);
+	if (elem == NULL) {
+		ESP_LOGE(TAG, "First Element in triggers not found");
 		return ESP_FAIL;
 	}
-
+	device = cJSON_GetObjectItemCaseSensitive(elem, "device");
+	if (device == NULL || !cJSON_IsString(device) || (device->valuestring == NULL)) {
+		ESP_LOGE(TAG, "Device element not found");
+		return ESP_FAIL;
+	}
 	
-	return writeBase64Buffer(path, (unsigned char *)thumbnail->valuestring);
+	strcpy(target, device->valuestring);
+
+	return ESP_OK;
 }
 
 esp_err_t handleWebhookResult(char *path, char *content, char *content_type, size_t bytes_received) {
-	if (strcmp(content_type, "image/jpeg") != 0) {
-		cJSON *json = cJSON_Parse(content);
-		if (json == NULL) {
-			ESP_LOGI(TAG, "cJSON_Parse Failed: [L=%d]%s\n", bytes_received, content);
+	char device[32] = {'\0'};
+	memset(device, 0,sizeof(device));
+
+	cJSON *json = cJSON_Parse(content);
+	if (json == NULL) {
+		ESP_LOGI(TAG, "cJSON_Parse Failed: [L=%d]%s\n", bytes_received, content);
+		return ESP_FAIL;
+	}
+
+	if (processAlarmResponse(path, json, device) == ESP_OK) {	
+		cJSON_Delete(json);
+		return handleAlarms(device);		
+	} else {
+		char *json_string = cJSON_Print(json);
+		if (json_string == NULL) {
+			ESP_LOGI(TAG, "cJSON_Print Failed: [L=%d]%s\n", bytes_received, content);
+			cJSON_Delete(json);
 			return ESP_FAIL;
 		}
-
-		if (processAlarmResponse(path, json) != ESP_OK) {
-			char *json_string = cJSON_Print(json);
-			if (json_string == NULL) {
-				ESP_LOGI(TAG, "cJSON_Print Failed: [L=%d]%s\n", bytes_received, content);
-				cJSON_Delete(json);
-				return ESP_FAIL;
-			}
-			cJSON_free(json_string);
-		}
-		cJSON_Delete(json);
-	} else {
-		esp_err_t err = writeBinaryImageFile(path, content, bytes_received);
-		if (err == ESP_FAIL) {
-			ESP_LOGE(TAG, "Failed to save the file %s ", path);
-		}
+		cJSON_free(json_string);
 	}
+	cJSON_Delete(json);
+
 	return ESP_OK;
 }
 
@@ -144,12 +153,7 @@ esp_err_t unifi_cb(httpd_req_t *req) {
 	httpd_req_get_hdr_value_str(req, "Content-Type", content_type, sizeof(content_type));
 
 	// Null-terminate the received data for string manipulation
-	if (content[bytes_received] != '}') {
-		content[bytes_received] = '"';
-		content[bytes_received + 1] = '}';
-		content[bytes_received + 2] = '}';
-		bytes_received += 2;
-	}
+	content[bytes_received] = '\0';
 	ESP_LOGI(TAG, "Content-Type: %s BytesReceived:%d Content:[%s]", content_type, bytes_received, content);
 
 	esp_err_t ret = handleWebhookResult(path, content, content_type, bytes_received);

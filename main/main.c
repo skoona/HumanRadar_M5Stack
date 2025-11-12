@@ -34,7 +34,10 @@
 #include <string.h>
 #include <sys/stat.h>
 
-extern void example_lvgl_demo_ui(lv_obj_t *scr);
+static QueueHandle_t imageQueue;
+static QueueHandle_t urlQueue;
+
+extern void	ui_skoona_page(lv_obj_t *scr);
 
 // Function to start the HTTP server
 extern httpd_handle_t start_http_listener(void); 
@@ -44,49 +47,13 @@ extern void wifi_init_sta(void);
 extern void unifi_async_api_request(esp_http_client_method_t method, char * path);
 extern void unifi_api_request_le2k(esp_http_client_method_t method, char * path);
 extern void unifi_api_request_gt2k(esp_http_client_method_t method, char * path);
-esp_err_t display_received_image(char *path);
 esp_err_t fileList();
 esp_err_t writeBinaryImageFile(char *path, void *buffer, int bufLen);
 
 
-	static const char *TAG = "sknSensors";
+static const char *TAG = "sknSensors";
 static lv_obj_t *screen = NULL;
 int global_image_scale = 80;
-
-	/* Decode base64 buffer and save and to file.
-	 * Assumed to come from: JSON 'alarm.thumbnail'
-	 */
-esp_err_t writeBase64Buffer(char *path, const unsigned char *input_buffer) {
-
-	size_t input_len = strlen((const char *)input_buffer)-23;
-	unsigned char *output_buffer;
-	size_t output_len;
-    const unsigned char *pInputBuffer = &input_buffer[23];
-
-    output_len = ((input_len + 3) / 3) * 4 + 1;
-
-	// Allocate memory for the output buffer
-	output_buffer = (unsigned char *)calloc(output_len, sizeof(unsigned char));
-	if (output_buffer == NULL) {
-		ESP_LOGE(TAG, "Failed to allocate [%d:%d] bytes for base64 output buffer for: %s",input_len,output_len, path);
-		return ESP_FAIL;
-	}
-
-	// 'data:image/jpeg;base64,' = 23 bytes
-	int ret = mbedtls_base64_decode(output_buffer, output_len, &output_len,	pInputBuffer, input_len);
-
-	if (ret == 0) {
-		// Decoding successful.
-		ret = writeBinaryImageFile(path, output_buffer, output_len);
-	} else {
-		ESP_LOGE(TAG, "Failed to decode base64 contents for: %s", path);
-
-		ret = ESP_FAIL;
-	}
-	free(output_buffer); // Clean up memory
-
-	return ret;
-}
 
 /* List storage contents to console 
 */
@@ -142,24 +109,8 @@ esp_err_t writeBinaryImageFile(char *path, void *buffer, int bufLen) {
 	    ESP_LOGI(TAG, "File written, name: %s, bytes: %d", path, written);
 	}
 	// Create image
-	display_received_image(path); 
-    return ESP_OK;
-}
-
-/* Display image file from spiffs
-*/
-esp_err_t display_received_image(char *path) {
-	char image[256] = {"S:"};
-	lv_obj_t *img = lv_img_create(screen);
-    if(img == NULL) {
-		ESP_LOGE(TAG, "Failed to create image for %s", path);
-		return ESP_FAIL;
-    }
-	sprintf(image, "S:%s", path);
-	lv_img_set_src(img, image);
-	lv_image_set_scale(img, global_image_scale); // 80
-	lv_obj_center(img);
-    return ESP_OK;
+	xQueueSend(imageQueue, path, 0);
+	return ESP_OK;
 }
 
 /* Called on button press */
@@ -167,6 +118,7 @@ static void btn_handler(void *button_handle, void *usr_data)
 {
     static bool oneShot = false;
     int button_index = (int)usr_data;
+    char url[254];
 	switch (button_index) {
 	case 0:
 		// Get All Cameras
@@ -176,14 +128,16 @@ static void btn_handler(void *button_handle, void *usr_data)
         if (oneShot) {
 		    // Get Garage Snapshot -- Binary
             global_image_scale = 192;
-		    unifi_api_request_gt2k(HTTP_METHOD_GET, "https://10.100.1.1/proxy/protect/integration/v1/cameras/65b2e8d400858f03e4014f3a/snapshot");
+            strcpy(url,"https://10.100.1.1/proxy/protect/integration/v1/cameras/65b2e8d400858f03e4014f3a/snapshot");
+	        xQueueSend(urlQueue, url, 10);
         }
         oneShot = true;
 		break;
 	case 2:
 	    // Get Front Door Snapshot -- BINARY
         global_image_scale = 80;
-		unifi_api_request_gt2k(HTTP_METHOD_GET, "https://10.100.1.1/proxy/protect/integration/v1/cameras/6096c66202197e0387001879/snapshot");
+		strcpy(url, "https://10.100.1.1/proxy/protect/integration/v1/cameras/6096c66202197e0387001879/snapshot");
+		xQueueSend(urlQueue, url, 10);
 		break;
 }
 
@@ -193,10 +147,93 @@ static void btn_handler(void *button_handle, void *usr_data)
 /* Gather hash from JSON config.json
    - lookup device and generate URL
    - submit URL to cause image display
+   - get constants from config.json in future
 */
-esp_err_t handleAlarms(char *alert_type, char *device) {
+esp_err_t handleAlarms(char *device) {
+    char *alarm_id = NULL;
 
-    return ESP_OK;
+	if (strcmp("E063DA00602B", device) == 0) { // front door
+		alarm_id = "6096c66202197e0387001879";
+	} else if (strcmp("70A7413F0FD7", device) == 0) { // Garage
+		alarm_id = "65b2e8d400858f03e4014f3a";
+	} else if (strcmp("F4E2C60C4E6A", device) == 0) { // Kitchen and Dining
+		alarm_id = "68cf46180060ac03e42f9125";
+	} else if (strcmp("70A7410B7643", device) == 0) { // South View
+		alarm_id = "6355cf55027c9603870029ed";
+	} else if (strcmp("70A7410B7593", device) == 0) { // East View
+		alarm_id = "63559ad5007a960387002880";
+	} else {
+        ESP_LOGE(TAG, "Unknown Device: %s", device);
+        return ESP_FAIL;
+    }
+
+	global_image_scale = 80;
+
+    // lv_obj_t *spinner = lv_spinner_create(lv_scr_act());
+	// lv_spinner_set_anim_params(spinner,1000, 60);
+    // lv_obj_set_size(spinner, 100, 100);
+	// lv_obj_center(spinner);
+
+	char url[254];
+
+    sprintf(url,"https://10.100.1.1/proxy/protect/integration/v1/cameras/%s/snapshot", alarm_id);
+	xQueueSend(urlQueue, url, 10);
+	return ESP_OK;
+}
+
+static void vURLTask(void *pvParameters) {
+	char url[288]; // Used to receive data
+	BaseType_t xReturn; // Used to receive return value
+    QueueHandle_t urlQueue = pvParameters;
+
+	while (1) {
+		xReturn = xQueueReceive(urlQueue, url, pdMS_TO_TICKS(3000));
+		if (xReturn == pdTRUE) {
+			ESP_LOGI("URLTask", "Received URL: %s", url);
+			unifi_api_request_gt2k(HTTP_METHOD_GET, url);
+		}
+		vTaskDelay(10);
+	}
+}
+
+static void vImageTask(void *pvParameters) {
+	char path[256];		// Used to receive data
+	char image[288] = {"S:"};
+	BaseType_t xReturn; // Used to receive return value
+	QueueHandle_t ImageQueue = pvParameters;
+	static lv_style_t style_max_height;
+	static lv_style_t style_max_width;
+
+	while (1) {
+		xReturn = xQueueReceive(ImageQueue, path, pdMS_TO_TICKS(3000));
+		if (xReturn == pdTRUE) {
+            ESP_LOGI("ImageTask", "Received image file: %s", path);
+			lv_obj_t *img = lv_img_create(lv_screen_active());
+
+			if (img != NULL) {
+                lv_obj_set_style_bg_color(lv_screen_active(), lv_color_white(), LV_PART_MAIN);
+				sprintf(image, "S:%s", path); 
+				lv_img_set_src(img, image); // 240 * 320                
+
+                lv_style_init(&style_max_height);
+                lv_style_set_y(&style_max_height, 315);
+				lv_obj_set_height(img, lv_pct(100));
+				lv_obj_add_style(img, &style_max_height, LV_STATE_DEFAULT);
+
+				lv_style_init(&style_max_width);
+                lv_style_set_y(&style_max_width, 235);
+                lv_obj_set_width(img, lv_pct(100));
+                lv_obj_add_style(img, &style_max_height, LV_STATE_DEFAULT);
+
+				lv_image_set_inner_align(img, LV_IMAGE_ALIGN_STRETCH);
+				// lv_image_set_scale(img, global_image_scale); // 80
+				lv_obj_center(img);
+			} else {
+				ESP_LOGE(TAG, "Failed to create image for %s", path);
+			}
+		} 
+		vTaskDelay(10);
+	}
 }
 
 void app_main(void)
@@ -215,7 +252,15 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     ESP_ERROR_CHECK(example_connect());
 
-    // Start the HTTP server
+	imageQueue = xQueueCreate(16, 256);
+	urlQueue = xQueueCreate(16, 256);
+	if (imageQueue != NULL) {
+		xTaskCreatePinnedToCore(vImageTask, "ImageTask", 4096, imageQueue, 2, NULL, 0);
+		xTaskCreatePinnedToCore(vURLTask, "vURLTask", 4096, urlQueue, 2, NULL, 0);
+	} else {
+		ESP_LOGE(TAG, "Display Queues Failed.");
+	}
+	// Start the HTTP server
     start_http_listener();
 
     // bsp_display_start();
@@ -241,12 +286,10 @@ void app_main(void)
     esp_lv_decoder_handle_t decoder_handle = NULL;
     esp_lv_decoder_init(&decoder_handle); //Initialize this after lvgl starts
 
-
-    ESP_LOGI("example", "Display LVGL animation");
     bsp_display_lock(0);
 	screen = lv_disp_get_scr_act(NULL);
 
-	example_lvgl_demo_ui(screen);
+	ui_skoona_page(screen);
 
 	bsp_display_unlock();
     bsp_display_backlight_on();
@@ -262,4 +305,12 @@ void app_main(void)
 
     // show spiffs contents
     fileList();
+
+	vTaskDelay(pdMS_TO_TICKS(10000));
+	// ESP_LOGI(TAG, "Service LVGL loop");
+	// while (1) {
+	// 	/* Provide updates to currently-displayed Widgets here. */
+	// 	lv_timer_handler();
+	// 	vTaskDelay(pdMS_TO_TICKS(5));
+	// }
 }
