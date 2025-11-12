@@ -1,40 +1,46 @@
-<!doctype html>
-<html lang="en">
-    <head>
-        <meta charset="utf-8">
-        <meta name="robots" content="noindex">
-        <link rel="icon" href="/favicon.ico?v3" sizes="any">
-        <link rel="icon" href="/favicon.svg?v3" type="image/svg+xml">
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png?v3">
-        <title>UniFi OS</title>
-        <meta name="viewport" content="width=device-width,initial-scale=1">
-        <script>window.UNIFI_OS_MANIFEST = {
-            "model": {
-                "id": "UDMPRO",
-                "shortName": "UDM Pro",
-                "longName": "UniFi Dream Machine Pro"
+{
+    "alarm": {
+        "name": "Motion",
+        "sources": [
+            {
+                "device": "70A7410B7593",
+                "type": "include"
             },
-            "images": [
-                {
-                    "size": 1024,
-                    "url": "/assets/images/1024.png?udmpro-3.0.1"
-                },
-                {
-                    "size": 64,
-                    "url": "/assets/images/64.png?udmpro-3.0.1"
-                },
-                {
-                    "size": 48,
-                    "url": "/assets/images/48.png?udmpro-3.0.1"
-                }
-               ]
+            {
+                "device": "E063DA00602B",
+                "type": "include"
+            },
+            {
+                "device": "70A7413F0FD7",
+                "type": "include"
+            },
+            {
+                "device": "F4E2C60C4E6A",
+                "type": "include"
+            },
+            {
+                "device": "70A7410B7643",
+                "type": "include"
             }
-        </script>
-        <script defer="defer" src="/main.6ae2df685d792406e1d9.js"></script>
-        <link href="/main.2129f854.css" rel="stylesheet">
-    </head>
-    <body id="portal-body">
-        <div id="portal-root"></div>
-        <div id="site-manager_portal-container"></div>
-    </body>
-</html>
+        ],
+        "conditions": [
+            {
+                "condition": {
+                    "type": "is",
+                    "source": "motion"
+                }
+            }
+        ],
+        "triggers": [
+            {
+                "key": "motion",
+                "device": "70A7410B7593",
+                "eventId": "6914aa9900d63703e4027139",
+                "timestamp": 1762962073231
+            }
+        ],
+        "eventPath": "/protect/events/event/6914aa9900d63703e4027139",
+        "eventLocalLink": "https://10.100.1.1/protect/events/event/6914aa9900d63703e4027139"
+    },
+    "timestamp": 1762962073246
+}

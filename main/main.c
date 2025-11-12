@@ -257,7 +257,7 @@ void app_main(void)
     esp_lv_decoder_handle_t decoder_handle = NULL;
     esp_lv_decoder_init(&decoder_handle); //Initialize this after lvgl starts
 	
-    // lv_tick_set_cb(milliseconds);
+    lv_tick_set_cb(milliseconds);
 
 	bsp_display_lock(0);
 	screen = lv_disp_get_scr_act(disp);
