@@ -43,7 +43,7 @@ esp_err_t fileList();
 esp_err_t writeBinaryImageFile(char *path, void *buffer, int bufLen);
 
 
-static const char *TAG = "sknSensors";
+static const char *TAG = "skoona.net";
 
 /* List storage contents to console 
 */
@@ -140,14 +140,7 @@ static void vURLTask(void *pvParameters) {
 	while (1) {
 		xReturn = xQueueReceive(urlQueue, url, pdMS_TO_TICKS(3000));
 		if (xReturn == pdTRUE) {
-			ESP_LOGI("URLTask", "Received URL: %s", url);
-			bsp_display_lock(0);
-			    lv_obj_t *spinner = lv_spinner_create(lv_scr_act());
-			    lv_spinner_set_anim_params(spinner,500, 60);
-			    lv_obj_set_size(spinner, 100, 100);
-			    lv_obj_center(spinner);
-			bsp_display_unlock();
-			
+			ESP_LOGI("URLTask", "Received URL: %s", url);					
             unifi_api_request_gt2k(HTTP_METHOD_GET, url);			            
 		}
 		vTaskDelay(10);

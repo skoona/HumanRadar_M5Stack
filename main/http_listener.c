@@ -4,18 +4,46 @@
 
 #include "esp_err.h"
 #include "esp_heap_caps.h"
+#include "mbedtls/base64.h"
+#include <cJSON.h>
+#include <esp_event.h>
 #include <esp_http_server.h>
 #include <esp_log.h>
-#include <nvs_flash.h>
 #include <esp_wifi.h>
-#include <esp_event.h>
+#include <nvs_flash.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <cJSON.h>
 
 static const char *TAG = "LISTENER";
 extern QueueHandle_t urlQueue;
+extern esp_err_t writeBinaryImageFile(char *path, void *buffer, int bufLen);
+
+esp_err_t writeBase64Buffer(char *path, const unsigned char *input_buffer) {
+	size_t input_len = strlen((const char *)input_buffer);
+	unsigned char *output_buffer;
+	size_t output_len;
+	
+	// Allocate memory for the output buffer
+	output_len = ((input_len + 3) / 3) * 4 + 1;
+	output_buffer = (unsigned char *)calloc(output_len, sizeof(unsigned char));
+	if (output_buffer == NULL) {
+		ESP_LOGE(TAG,"Failed to allocate [%d:%d] bytes for base64 output buffer for: %s",input_len, output_len, path);
+		return ESP_FAIL;		
+	}
+	// 'data:image/jpeg;base64,' = 23 bytes
+	int ret = mbedtls_base64_decode(output_buffer, output_len, &output_len, input_buffer, input_len);
+	if (ret == 0) {
+		// Decoding successful.
+		ret = writeBinaryImageFile(path, output_buffer, output_len);
+		
+	} else {
+		ESP_LOGE(TAG, "Failed to decode base64 contents for: %s", path);
+		ret = ESP_FAIL;		
+	}
+	free(output_buffer); // Clean up memory
+	return ret;	
+}
 
 /* Gather values from menuconfig
    - lookup device and generate URL
@@ -54,6 +82,10 @@ esp_err_t processAlarmResponse(char *path, cJSON * root, char *target) {
 	cJSON *triggers = NULL;
 	cJSON *elem = NULL;
 	cJSON *device = NULL;
+	cJSON *thumbnail = NULL;
+	esp_err_t ret = ESP_OK;
+	
+	memset(target, 0, sizeof(target));
 
 	alarm = cJSON_GetObjectItemCaseSensitive(root, "alarm");
 	if (alarm == NULL) {
@@ -75,10 +107,17 @@ esp_err_t processAlarmResponse(char *path, cJSON * root, char *target) {
 		ESP_LOGE(TAG, "Device element not found");
 		return ESP_FAIL;
 	}
+	thumbnail = cJSON_GetObjectItemCaseSensitive(alarm, "thumbnail");
+	if (thumbnail == NULL || !cJSON_IsString(thumbnail) || (thumbnail->valuestring == NULL)) {
+		ESP_LOGE(TAG, "Thumbnail element not found");		
+		ret = ESP_FAIL;
+		strcpy(target, device->valuestring);
+	} else {				
+		char *pValue = thumbnail->valuestring;
+		return writeBase64Buffer( path, (const unsigned char *)&pValue[23]);
+	}
 	
-	strcpy(target, device->valuestring);
-
-	return ESP_OK;
+	return ret;
 }
 
 esp_err_t handleWebhookResult(char *path, char *content, char *content_type, size_t bytes_received) {
@@ -92,10 +131,11 @@ esp_err_t handleWebhookResult(char *path, char *content, char *content_type, siz
 	}
 
 	esp_err_t ret = ESP_OK;
-	if (processAlarmResponse(path, json, device) == ESP_OK) {	
+	processAlarmResponse(path, json, device);
+	if (strlen(device) > 0) { // Image was included so no seperate request vi HandleAlarms()
 		ret = handleAlarms(device);		
 	}
-
+	
 	char *json_string = cJSON_Print(json);
 	if (json_string == NULL) {
 		ESP_LOGI(TAG, "cJSON_Print Failed: [L=%d]%s\n", bytes_received, content);

@@ -7,24 +7,11 @@
 #include <string.h>
 #include <sys/param.h>
 #include <stdlib.h>
-// #include <ctype.h>
 #include "esp_heap_caps.h"
 #include "esp_log.h"
-// #include "nvs_flash.h"
-// #include "esp_event.h"
-// #include "esp_netif.h"
-// #include "protocol_examples_common.h"
-// #include "protocol_examples_utils.h"
 #include "esp_tls.h"
-
-// #include "freertos/FreeRTOS.h"
-// #include "freertos/task.h"
-// #include "esp_system.h"
-
 #include "esp_http_client.h"
 #include <cJSON.h>
-
-#define X_API_KEY  "8tBVk1cz8khtBclWJ4SqnQcY47m1Vzdu"
 
 static const char *TAG = "REQUESTER";
 extern esp_err_t writeBinaryImageFile(char *path, void *buffer, int bufLen);
