@@ -134,15 +134,7 @@ esp_err_t handleWebhookResult(char *path, char *content, char *content_type, siz
 	if (strlen(device) > 0) { // Image was included so no seperate request vi HandleAlarms()
 		handleAlarms(device);		
 	}
-	
-	char *json_string = cJSON_Print(json);
-	if (json_string == NULL) {
-		ESP_LOGE(TAG, "cJSON_Print Failed: [L=%d]%s\n", bytes_received, content);
-		cJSON_Delete(json);
-		return ESP_FAIL;
-	}
-	ESP_LOGI(TAG, "Alert from device: %s: [L=%d]\n%s\n", device, bytes_received, json_string);
-	cJSON_free(json_string);	
+
 	cJSON_Delete(json);
 
 	return ESP_OK;
@@ -236,7 +228,7 @@ esp_err_t unifi_cb(httpd_req_t *req) {
 
 	// Null-terminate the received data for string manipulation
 	content[received_len] = '\0';
-	ESP_LOGI(TAG, "Content-Type:%s BytesReceived:%d req->content_len:%d Content:[%s]", content_type, total_len, req->content_len, content);
+	ESP_LOGI(TAG, "Content-Type:%s total_len:%d req->content_len:%d", content_type, total_len, req->content_len);
 
 	handleWebhookResult(path, content, content_type, received_len);
 
