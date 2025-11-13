@@ -129,19 +129,19 @@ esp_err_t handleWebhookResult(char *path, char *content, char *content_type, siz
 		ESP_LOGI(TAG, "cJSON_Parse Failed: [L=%d]%s\n", bytes_received, content);
 		return ESP_FAIL;
 	}
-
-	esp_err_t ret = ESP_OK;
+	
 	processAlarmResponse(path, json, device);
 	if (strlen(device) > 0) { // Image was included so no seperate request vi HandleAlarms()
-		ret = handleAlarms(device);		
+		handleAlarms(device);		
 	}
 	
 	char *json_string = cJSON_Print(json);
 	if (json_string == NULL) {
-		ESP_LOGI(TAG, "cJSON_Print Failed: [L=%d]%s\n", bytes_received, content);
+		ESP_LOGE(TAG, "cJSON_Print Failed: [L=%d]%s\n", bytes_received, content);
 		cJSON_Delete(json);
 		return ESP_FAIL;
 	}
+	ESP_LOGI(TAG, "Alert from device: %s: [L=%d]\n%s\n", device, bytes_received, json_string);
 	cJSON_free(json_string);	
 	cJSON_Delete(json);
 
