@@ -14,6 +14,7 @@
 #include "esp_timer.h"
 #include "freertos/idf_additions.h"
 #include "freertos/projdefs.h"
+#include "freertos/semphr.h"
 #include "lvgl.h"
 #include "nvs_flash.h"
 #include "protocol_examples_common.h"
@@ -29,6 +30,7 @@
 
 QueueHandle_t imageQueue;
 QueueHandle_t urlQueue;
+SemaphoreHandle_t xMutex;
 
 extern void	ui_skoona_page(lv_obj_t *scr);
 
@@ -55,8 +57,10 @@ void standBy(char *message) {
 	bsp_display_lock(0);
 	standby = lv_label_create(lv_scr_act());
 	lv_label_set_text(standby, message);
-	lv_obj_set_style_text_font(standby, &lv_font_montserrat_24, 0);
+	lv_obj_set_style_text_font(standby, &lv_font_montserrat_32, 0);
 	lv_style_init(&style_red);
+	lv_style_set_bg_color(&style_red, lv_color_make(128, 128, 128));
+	lv_style_set_bg_opa(&style_red, LV_OPA_COVER);
 	lv_style_set_text_color(&style_red, lv_color_make(0xff, 0x00, 0x00)); // Red color
 	lv_obj_add_style(standby, &style_red, LV_PART_MAIN);
 	lv_obj_center(standby);
@@ -104,54 +108,57 @@ esp_err_t fileList() {
 */
 esp_err_t writeBinaryImageFile(char *path, void *buffer, int bufLen) {
 	uint written = 0;
-	FILE *listener_event_file = NULL;
-
-	listener_event_file = fopen(path, "wb");
-    if (listener_event_file == NULL) {
-        ESP_LOGE(TAG, "Failed to open %s file for writing", path);
-		return ESP_FAIL;
-    } else {
-	    // written = fwrite(buffer, sizeof(char),bufLen, listener_event_file);
-		written = fwrite(buffer, bufLen, 1, listener_event_file);
-		fclose(listener_event_file);
-	    ESP_LOGI(TAG, "File written, name: %s, bytes: %d", path, written);
+	FILE *event_file = NULL;
+	if (xSemaphoreTake(xMutex, portMAX_DELAY) == pdTRUE) {
+		event_file = fopen(path, "wb");
+		if (event_file == NULL) {
+			ESP_LOGE(TAG, "Failed to open %s file for writing", path);
+			xSemaphoreGive(xMutex);
+			return ESP_FAIL;
+		} else {
+			// written = fwrite(buffer, sizeof(char),bufLen,
+			// listener_event_file);
+			written = fwrite(buffer, bufLen, 1, event_file);
+			fclose(event_file);
+			ESP_LOGI(TAG, "File written, name: %s, bytes: %d", path, written);
+		}
+		xSemaphoreGive(xMutex);
+		// Create image
+		xQueueSend(imageQueue, path, 0);
 	}
-	// Create image
-	xQueueSend(imageQueue, path, 0);
 	return ESP_OK;
 }
+	/* Called on button press */
+static void btn_handler(void *button_handle, void *usr_data) {
+		static bool oneShot = false;
+		int button_index = (int)usr_data;
+		char url[254];
 
-/* Called on button press */
-static void btn_handler(void *button_handle, void *usr_data)
-{
-    static bool oneShot = false;
-    int button_index = (int)usr_data;
-    char url[254];
-	
-	if(oneShot)	standBy("Please StandBy...");
+		switch (button_index) {
+		case 0:
+			// Get All Cameras
+			unifi_async_api_request(HTTP_METHOD_GET,
+									CONFIG_PROTECT_API_ENDPOINT);
+			break;
+		case 1:
+			if (oneShot) {
+				// Get Garage Snapshot -- Binary
+				sprintf(url, "%s/65b2e8d400858f03e4014f3a/snapshot",
+						CONFIG_PROTECT_API_ENDPOINT);
+				xQueueSend(urlQueue, url, 10);
+			}
+			oneShot = true;
+			break;
+		case 2:
+			// Get Front Door Snapshot -- BINARY
+			sprintf(url, "%s/6096c66202197e0387001879/snapshot",
+					CONFIG_PROTECT_API_ENDPOINT);
+			xQueueSend(urlQueue, url, 10);
+			break;
+		}
 
-	switch (button_index) {
-	case 0:
-		// Get All Cameras
-		unifi_async_api_request(HTTP_METHOD_GET, CONFIG_PROTECT_API_ENDPOINT);
-		break;
-	case 1:
-        if (oneShot) {
-		    // Get Garage Snapshot -- Binary            
-            sprintf(url,"%s/65b2e8d400858f03e4014f3a/snapshot", CONFIG_PROTECT_API_ENDPOINT);
-	        xQueueSend(urlQueue, url, 10);
-        }
-        oneShot = true;
-		break;
-	case 2:
-	    // Get Front Door Snapshot -- BINARY        
-		sprintf(url, "%s/6096c66202197e0387001879/snapshot", CONFIG_PROTECT_API_ENDPOINT);
-		xQueueSend(urlQueue, url, 10);
-		break;
-}
-
-    ESP_LOGI(TAG, "Button %d pressed", button_index);
-}
+		ESP_LOGI(TAG, "Button %d pressed", button_index);
+	}
 
 static void vURLTask(void *pvParameters) {
 	char url[288]; // Used to receive data
@@ -179,36 +186,39 @@ static void vImageTask(void *pvParameters) {
 	while (1) {
 		xReturn = xQueueReceive(ImageQueue, path, pdMS_TO_TICKS(3000));
 		if (xReturn == pdTRUE) {
-            ESP_LOGI("ImageTask", "Received image file: %s", path);
-			lv_obj_t *img = lv_img_create(lv_screen_active());
+			if (xSemaphoreTake(xMutex, portMAX_DELAY) == pdTRUE) {
+				ESP_LOGI("ImageTask", "Received image file: %s", path);
+				lv_obj_t *img = lv_img_create(lv_screen_active());
 
-			if (img != NULL) {
-				bsp_display_lock(0);
+				if (img != NULL) {
+					bsp_display_lock(0);
 
-				lv_obj_set_style_bg_color(lv_screen_active(), lv_color_white(), LV_PART_MAIN);
-				sprintf(image, "S:%s", path); 
-				lv_img_set_src(img, image); // 240 * 320                
+					lv_obj_set_style_bg_color(lv_screen_active(),
+											  lv_color_white(), LV_PART_MAIN);
+					sprintf(image, "S:%s", path);
+					lv_img_set_src(img, image); // 240 * 320
 
-                lv_style_init(&style_max_height);
-                lv_style_set_y(&style_max_height, 312);
-				lv_obj_set_height(img, lv_pct(100));
-				lv_obj_add_style(img, &style_max_height, LV_STATE_DEFAULT);
+					lv_style_init(&style_max_height);
+					lv_style_set_y(&style_max_height, 312);
+					lv_obj_set_height(img, lv_pct(100));
+					lv_obj_add_style(img, &style_max_height, LV_STATE_DEFAULT);
 
-				lv_style_init(&style_max_width);
-                lv_style_set_y(&style_max_width, 232);
-                lv_obj_set_width(img, lv_pct(100));
-                lv_obj_add_style(img, &style_max_height, LV_STATE_DEFAULT);
+					lv_style_init(&style_max_width);
+					lv_style_set_y(&style_max_width, 232);
+					lv_obj_set_width(img, lv_pct(100));
+					lv_obj_add_style(img, &style_max_height, LV_STATE_DEFAULT);
 
-				lv_image_set_inner_align(img, LV_IMAGE_ALIGN_STRETCH);
-				lv_obj_center(img);
+					lv_image_set_inner_align(img, LV_IMAGE_ALIGN_STRETCH);
+					lv_obj_center(img);
 
-				bsp_display_unlock();
-			} else {
-				ESP_LOGE(TAG, "Failed to create image for %s", path);
+					bsp_display_unlock();
+				} else {
+					ESP_LOGE(TAG, "Failed to create image for %s", path);
+				}
+				xSemaphoreGive(xMutex);
 			}
-		} 
-        
-		vTaskDelay(10);
+			vTaskDelay(10);
+		}
 	}
 }
 
@@ -223,8 +233,9 @@ void app_main(void)
 	static lv_obj_t *screen = NULL;
 
 	vTaskDelay(pdMS_TO_TICKS(4000));
+	xMutex = xSemaphoreCreateMutex();
 
-    ESP_LOGI(TAG, "[APP] Startup..");
+	ESP_LOGI(TAG, "[APP] Startup..");
     ESP_LOGI(TAG, "[APP] Free memory: %" PRIu32 " bytes", esp_get_free_heap_size());
 
     esp_log_level_set("*", ESP_LOG_INFO);
@@ -235,11 +246,11 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     ESP_ERROR_CHECK(example_connect());
 
-	imageQueue = xQueueCreate(16, 256);
-	urlQueue = xQueueCreate(16, 256);
+	imageQueue = xQueueCreate(8, 256);
+	urlQueue = xQueueCreate(4, 256);
 	if (imageQueue != NULL) {
-		xTaskCreatePinnedToCore(vImageTask, "ImageTask", 6144, imageQueue, 2, NULL, tskNO_AFFINITY);
-		xTaskCreatePinnedToCore(vURLTask, "vURLTask", 6144, urlQueue, 2, NULL, tskNO_AFFINITY);
+		xTaskCreatePinnedToCore(vImageTask, "ImageTask", 6144, imageQueue, 16, NULL, tskNO_AFFINITY);
+		xTaskCreatePinnedToCore(vURLTask, "vURLTask", 6144, urlQueue, 4, NULL, tskNO_AFFINITY);
 	} else {
 		ESP_LOGE(TAG, "Display Queues Failed.");
 	}

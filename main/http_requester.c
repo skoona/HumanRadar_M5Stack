@@ -15,6 +15,7 @@
 
 static const char *TAG = "REQUESTER";
 extern esp_err_t writeBinaryImageFile(char *path, void *buffer, int bufLen);
+extern void standBy(char *message);
 
 static esp_err_t _http_event_handler(esp_http_client_event_t *evt) {
 	static char *output_buffer;  // Buffer to store response of http request from event handler
@@ -134,8 +135,7 @@ static esp_err_t _http_event_handler(esp_http_client_event_t *evt) {
     return ESP_OK;
 }
 
-void unifi_async_api_request(esp_http_client_method_t method,
-									char *path) {
+void unifi_async_api_request(esp_http_client_method_t method, char *path) {
 	esp_http_client_config_t config = {
         .url = path,
 		.method = method,
@@ -145,7 +145,9 @@ void unifi_async_api_request(esp_http_client_method_t method,
         .is_async = true,
         .timeout_ms = 5000,
     };
-    ESP_LOGI(TAG, "HTTPS async requests =>");
+	standBy("Please StandBy...");
+
+	ESP_LOGI(TAG, "HTTPS async requests =>");
     esp_http_client_handle_t client = esp_http_client_init(&config);
 	esp_http_client_set_header(client, "X-API-KEY", CONFIG_PROTECT_API_TOKEN);
 
@@ -167,8 +169,7 @@ void unifi_async_api_request(esp_http_client_method_t method,
     esp_http_client_cleanup(client);
 }
 
-void unifi_api_request_gt2k(esp_http_client_method_t method,
-								   char *path) {
+void unifi_api_request_gt2k(esp_http_client_method_t method, char *path) {
 	esp_http_client_config_t config = {
         .url = path,
 		.method = method,
@@ -176,7 +177,9 @@ void unifi_api_request_gt2k(esp_http_client_method_t method,
 		.skip_cert_common_name_check = true,
         .event_handler = _http_event_handler,
     };
-    ESP_LOGI(TAG, "HTTPS request with hostname and path => %s\n", path); // CONFIG_EXAMPLE_HTTP_ENDPOINT);
+	standBy("Please StandBy...");
+
+	ESP_LOGI(TAG, "HTTPS request with hostname and path => %s\n", path); // CONFIG_EXAMPLE_HTTP_ENDPOINT);
     esp_http_client_handle_t client = esp_http_client_init(&config);
 	esp_http_client_set_header(client, "X-API-KEY", CONFIG_PROTECT_API_TOKEN);
     esp_err_t err = esp_http_client_perform(client);

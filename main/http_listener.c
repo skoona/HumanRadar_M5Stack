@@ -84,6 +84,7 @@ esp_err_t processAlarmResponse(char *path, cJSON * root, char *target) {
 	cJSON *elem = NULL;
 	cJSON *device = NULL;
 	cJSON *thumbnail = NULL;
+	char customPath[128];
 	esp_err_t ret = ESP_OK;
 	
 	memset(target, 0, sizeof(target));
@@ -115,7 +116,8 @@ esp_err_t processAlarmResponse(char *path, cJSON * root, char *target) {
 		strcpy(target, device->valuestring);
 	} else {				
 		char *pValue = thumbnail->valuestring;
-		return writeBase64Buffer( path, (const unsigned char *)&pValue[23]);
+		sprintf(customPath, "/spiffs/%s-Event.jpg", device->valuestring);
+		return writeBase64Buffer( customPath, (const unsigned char *)&pValue[23]);
 	}
 	
 	return ret;
@@ -199,7 +201,6 @@ esp_err_t unifi_cb(httpd_req_t *req) {
 	size_t received_len = 0;
 	size_t total_len = req->content_len;
 	size_t remaining_sz = total_len;
-
 	standBy("Please StandBy...");
 
 	content = calloc(content_len, sizeof(char)); // allocate 512KB
@@ -215,6 +216,7 @@ esp_err_t unifi_cb(httpd_req_t *req) {
 		bytes_received = httpd_req_recv(req, &content[received_len], remaining_sz);
 		if (bytes_received <= 0) { // Error or connection closed
 			if (bytes_received == HTTPD_SOCK_ERR_TIMEOUT) {
+				ESP_LOGE(TAG, "SOCKET Timeout Received. %s", req->uri);
 				httpd_resp_send_408(req); // Request timeout
 			}
 			return ESP_FAIL;
@@ -250,6 +252,8 @@ httpd_handle_t start_http_listener(void) {
     httpd_handle_t server = NULL;
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
 	
+	// Register the event handler for all HTTPS server events
+	// ESP_ERROR_CHECK(esp_event_handler_register(HTTP_SERVER_EVENT, ESP_EVENT_ANY_ID, &http_server_event_handler, NULL));
 
     // Start the httpd server
     ESP_LOGI(TAG, "Starting server on port: '%d'", config.server_port);
