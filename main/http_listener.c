@@ -157,7 +157,7 @@ esp_err_t root_get_handler(httpd_req_t *req) {
 }
 
 /* URI handler for UniFi Webhook
- - LISTENER: Notification Received: 
+ - LISTENER: Notification Received:
 	{
 	“alarm”:	{
 		“name”:	“Person”,
@@ -190,46 +190,56 @@ esp_err_t root_get_handler(httpd_req_t *req) {
 				“timestamp”:	1762545842808
 			}],
 		“eventPath”:	“/protect/events/event/690e50b200ba0503e40e9015”,
-		“eventLocalLink”:	“https://10.100.1.1/protect/events/event/690e50b200ba0503e40e9015”
+		“eventLocalLink”:“https://10.100.1.1/protect/events/event/690e50b200ba0503e40e9015”,
+		"thumbnail":"data:image/jpeg;base64,...."
 	},
 	“timestamp”:	1762545843235
 }
 */
 esp_err_t unifi_cb(httpd_req_t *req) {
 	char *content; 
-    size_t bytes_received;
 	char *path = "/spiffs/listener_event.jpg";
 
 	// Get the content length from the request headers
-    size_t content_len = req->content_len;
+	size_t content_len = (req->content_len * 2);
+	size_t bytes_received = 0;
+	size_t received_len = 0;
+	size_t total_len = req->content_len;
+	size_t remaining_sz = total_len;
 
-	content= calloc(content_len+4, sizeof(char));
- 	// content = heap_caps_malloc(content_len+4, MALLOC_CAP_8BIT);
-    if (content == NULL) { // Error or connection closed
+	content = calloc(content_len, sizeof(char)); // allocate 512KB
+	if (content == NULL) { // Error or connection closed
         httpd_resp_send_500(req); // alloc error
+		ESP_LOGE(TAG, "Receive Buffer Allocation Failed, req->content_len: %d, content_len:%d", req->content_len, content_len);
         return ESP_FAIL;
     }
 
     // Read the request body into the buffer
-    bytes_received = httpd_req_recv(req, content, content_len);
-    if (bytes_received <= 0) { // Error or connection closed
-        if (bytes_received == HTTPD_SOCK_ERR_TIMEOUT) {
-            httpd_resp_send_408(req); // Request timeout
-        }
-        return ESP_FAIL;
-    }
-
+	// Content-Type:application/json BytesReceived:5501 req->content_len:45337 Content:[{"alarm":
+	while (received_len < total_len) {
+		bytes_received = httpd_req_recv(req, &content[received_len], remaining_sz);
+		if (bytes_received <= 0) { // Error or connection closed
+			if (bytes_received == HTTPD_SOCK_ERR_TIMEOUT) {
+				httpd_resp_send_408(req); // Request timeout
+			}
+			return ESP_FAIL;
+		}
+		received_len += bytes_received;
+		remaining_sz = total_len - received_len;
+		ESP_LOGI(TAG, "content_len:%d\treq->content_len:%d\ttotal_len:%d\tbytes_received:%d\treceived_len:%d\tremaining_sz:%d",
+			content_len, req->content_len, total_len, bytes_received, received_len,remaining_sz);
+	}
 	// Might be binary image: check headers 
 	// -- key=Content-Type, value=image/jpeg
 	char content_type[32];
 	httpd_req_get_hdr_value_str(req, "Content-Type", content_type, sizeof(content_type));
 
 	// Null-terminate the received data for string manipulation
-	content[bytes_received] = '\0';
-	ESP_LOGI(TAG, "Content-Type: %s BytesReceived:%d Content:[%s]", content_type, bytes_received, content);
+	content[received_len] = '\0';
+	ESP_LOGI(TAG, "Content-Type:%s BytesReceived:%d req->content_len:%d Content:[%s]", content_type, total_len, req->content_len, content);
 
-	handleWebhookResult(path, content, content_type, bytes_received);
-	
+	handleWebhookResult(path, content, content_type, received_len);
+
 	free(content);
 
 	// Send a response back to the client
