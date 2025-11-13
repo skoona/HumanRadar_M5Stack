@@ -45,6 +45,24 @@ esp_err_t writeBinaryImageFile(char *path, void *buffer, int bufLen);
 
 static const char *TAG = "skoona.net";
 
+void standBy(char *message) {
+	if (message == NULL)
+		return;
+
+	lv_obj_t *standby;
+	static lv_style_t style_red;
+
+	bsp_display_lock(0);
+	standby = lv_label_create(lv_scr_act());
+	lv_label_set_text(standby, message);
+	lv_obj_set_style_text_font(standby, &lv_font_montserrat_24, 0);
+	lv_style_init(&style_red);
+	lv_style_set_text_color(&style_red, lv_color_make(0xff, 0x00, 0x00)); // Red color
+	lv_obj_add_style(standby, &style_red, LV_PART_MAIN);
+	lv_obj_center(standby);
+	bsp_display_unlock();
+}
+
 /* List storage contents to console 
 */
 esp_err_t fileList() {
@@ -87,8 +105,8 @@ esp_err_t fileList() {
 esp_err_t writeBinaryImageFile(char *path, void *buffer, int bufLen) {
 	uint written = 0;
 	FILE *listener_event_file = NULL;
-    
-    listener_event_file = fopen(path, "wb");
+
+	listener_event_file = fopen(path, "wb");
     if (listener_event_file == NULL) {
         ESP_LOGE(TAG, "Failed to open %s file for writing", path);
 		return ESP_FAIL;
@@ -109,6 +127,9 @@ static void btn_handler(void *button_handle, void *usr_data)
     static bool oneShot = false;
     int button_index = (int)usr_data;
     char url[254];
+	
+	if(oneShot)	standBy("Please StandBy...");
+
 	switch (button_index) {
 	case 0:
 		// Get All Cameras
@@ -169,12 +190,12 @@ static void vImageTask(void *pvParameters) {
 				lv_img_set_src(img, image); // 240 * 320                
 
                 lv_style_init(&style_max_height);
-                lv_style_set_y(&style_max_height, 316);
+                lv_style_set_y(&style_max_height, 312);
 				lv_obj_set_height(img, lv_pct(100));
 				lv_obj_add_style(img, &style_max_height, LV_STATE_DEFAULT);
 
 				lv_style_init(&style_max_width);
-                lv_style_set_y(&style_max_width, 236);
+                lv_style_set_y(&style_max_width, 232);
                 lv_obj_set_width(img, lv_pct(100));
                 lv_obj_add_style(img, &style_max_height, LV_STATE_DEFAULT);
 
@@ -217,8 +238,8 @@ void app_main(void)
 	imageQueue = xQueueCreate(16, 256);
 	urlQueue = xQueueCreate(16, 256);
 	if (imageQueue != NULL) {
-		xTaskCreatePinnedToCore(vImageTask, "ImageTask", 4096, imageQueue, 2, NULL, tskNO_AFFINITY);
-		xTaskCreatePinnedToCore(vURLTask, "vURLTask", 4096, urlQueue, 2, NULL, tskNO_AFFINITY);
+		xTaskCreatePinnedToCore(vImageTask, "ImageTask", 6144, imageQueue, 2, NULL, tskNO_AFFINITY);
+		xTaskCreatePinnedToCore(vURLTask, "vURLTask", 6144, urlQueue, 2, NULL, tskNO_AFFINITY);
 	} else {
 		ESP_LOGE(TAG, "Display Queues Failed.");
 	}

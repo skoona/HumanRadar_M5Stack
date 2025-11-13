@@ -18,6 +18,7 @@
 static const char *TAG = "LISTENER";
 extern QueueHandle_t urlQueue;
 extern esp_err_t writeBinaryImageFile(char *path, void *buffer, int bufLen);
+extern void standBy(char *message);
 
 esp_err_t writeBase64Buffer(char *path, const unsigned char *input_buffer) {
 	size_t input_len = strlen((const char *)input_buffer);
@@ -198,6 +199,8 @@ esp_err_t unifi_cb(httpd_req_t *req) {
 	size_t received_len = 0;
 	size_t total_len = req->content_len;
 	size_t remaining_sz = total_len;
+
+	standBy("Please StandBy...");
 
 	content = calloc(content_len, sizeof(char)); // allocate 512KB
 	if (content == NULL) { // Error or connection closed
