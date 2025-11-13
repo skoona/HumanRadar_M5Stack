@@ -145,7 +145,7 @@ esp_err_t handleWebhookResult(char *path, char *content, char *content_type, siz
 	cJSON_free(json_string);	
 	cJSON_Delete(json);
 
-	return ret;
+	return ESP_OK;
 }
 
 // URI handler for the root path "/"
@@ -228,15 +228,15 @@ esp_err_t unifi_cb(httpd_req_t *req) {
 	content[bytes_received] = '\0';
 	ESP_LOGI(TAG, "Content-Type: %s BytesReceived:%d Content:[%s]", content_type, bytes_received, content);
 
-	esp_err_t ret = handleWebhookResult(path, content, content_type, bytes_received);
+	handleWebhookResult(path, content, content_type, bytes_received);
 	
 	free(content);
 
 	// Send a response back to the client
-	httpd_resp_set_status(req, "200 OK");
+	httpd_resp_set_status(req, "204 OK");
 	httpd_resp_send(req, NULL, 0);
 
-    return ret;
+    return ESP_OK;
 }
 
 
