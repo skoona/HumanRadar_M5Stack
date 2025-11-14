@@ -108,18 +108,19 @@ esp_err_t fileList() {
 */
 esp_err_t writeBinaryImageFile(char *path, void *buffer, int bufLen) {
 	uint written = 0;
-	FILE *event_file = NULL;
+	int event_file = 0;
 	if (xSemaphoreTake(xMutex, portMAX_DELAY) == pdTRUE) {
-		event_file = fopen(path, "wb");
-		if (event_file == NULL) {
+		event_file = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+		if (event_file == -1) {
 			ESP_LOGE(TAG, "Failed to open %s file for writing", path);
 			xSemaphoreGive(xMutex);
 			return ESP_FAIL;
 		} else {
 			// written = fwrite(buffer, sizeof(char),bufLen,
 			// listener_event_file);
-			written = fwrite(buffer, bufLen, 1, event_file);
-			fclose(event_file);
+			// written = fwrite(buffer, bufLen, 1, event_file);
+			written = write(event_file, buffer, bufLen);
+			close(event_file);
 			ESP_LOGI(TAG, "File written, name: %s, bytes: %d", path, written);
 		}
 		xSemaphoreGive(xMutex);
