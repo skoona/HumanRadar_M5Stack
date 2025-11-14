@@ -17,8 +17,16 @@
 
 static const char *TAG = "LISTENER";
 extern QueueHandle_t urlQueue;
+static QueueHandle_t serverQueue;
 extern esp_err_t writeBinaryImageFile(char *path, void *buffer, int bufLen);
 extern void standBy(char *message);
+typedef struct _alarmRequest {
+	char uri[64];
+	char path[64];
+	char content_type[32];
+	size_t received_len; 
+	char *content;
+} AlarmRequest;
 
 esp_err_t writeBase64Buffer(char *path, const unsigned char *input_buffer) {
 	size_t input_len = strlen((const char *)input_buffer);
@@ -143,6 +151,23 @@ esp_err_t handleWebhookResult(char *path, char *content, char *content_type, siz
 	return ESP_OK;
 }
 
+static void vServerRequestsTask(void *pvParameters) {
+	AlarmRequest alarm = {0};		// Used to receive data
+	BaseType_t xReturn; // Used to receive return value
+	QueueHandle_t serverQueue = pvParameters;
+	vTaskDelay(pdMS_TO_TICKS(1000));
+	while (1) {
+		xReturn = xQueueReceive(serverQueue, &alarm, pdMS_TO_TICKS(3000));
+		if (xReturn == pdTRUE) {
+			ESP_LOGI(TAG, "Processing request from: %s", alarm.uri);
+			handleWebhookResult(alarm.path, alarm.content, alarm.content_type,
+								alarm.received_len);
+			free(alarm.content);
+		}
+		vTaskDelay(pdMS_TO_TICKS(1));
+	}
+}
+
 // URI handler for the root path "/"
 esp_err_t root_get_handler(httpd_req_t *req) {
 	httpd_resp_set_status(req, "200 OK");
@@ -196,7 +221,7 @@ esp_err_t unifi_cb(httpd_req_t *req) {
 	char *path = "/spiffs/listener_event.jpg";
 
 	// Get the content length from the request headers
-	size_t content_len = (req->content_len * 2);
+	size_t content_len = (req->content_len +4);
 	size_t bytes_received = 0;
 	size_t received_len = 0;
 	size_t total_len = req->content_len;
@@ -235,9 +260,15 @@ esp_err_t unifi_cb(httpd_req_t *req) {
 	content[received_len] = '\0';
 	ESP_LOGI(TAG, "Content-Type:%s total_len:%d req->content_len:%d", content_type, total_len, req->content_len);
 
-	handleWebhookResult(path, content, content_type, received_len);
+	AlarmRequest qAlarm = {0};
+	strncpy(qAlarm.path, path, sizeof(qAlarm.path));
+	strncpy(qAlarm.content_type, content_type, sizeof(qAlarm.content_type));
+	strncpy(qAlarm.uri, req->uri, sizeof(qAlarm.uri));	
+	qAlarm.received_len = received_len;
+	qAlarm.content = content;
 
-	free(content);
+	// Send it to be processed
+	xQueueSend(serverQueue, &qAlarm, pdMS_TO_TICKS(10));
 
 	// Send a response back to the client
 	httpd_resp_set_status(req, "204 OK");
@@ -251,11 +282,8 @@ esp_err_t unifi_cb(httpd_req_t *req) {
 httpd_handle_t start_http_listener(void) {
     httpd_handle_t server = NULL;
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-	
-	// Register the event handler for all HTTPS server events
-	// ESP_ERROR_CHECK(esp_event_handler_register(HTTP_SERVER_EVENT, ESP_EVENT_ANY_ID, &http_server_event_handler, NULL));
 
-    // Start the httpd server
+	// Start the httpd server
     ESP_LOGI(TAG, "Starting server on port: '%d'", config.server_port);
     if (httpd_start(&server, &config) == ESP_OK) {
 
@@ -277,7 +305,13 @@ httpd_handle_t start_http_listener(void) {
         };
         httpd_register_uri_handler(server, &unifi_cb_uri);
 
-    }
+		serverQueue = xQueueCreate(8, sizeof(AlarmRequest));
+		if (serverQueue != NULL) {
+			xTaskCreatePinnedToCore(vServerRequestsTask, "vServerRequestsTask",
+									6144, serverQueue, 8, NULL,
+									tskNO_AFFINITY);
+		}
+	}
     return server;
 }
 
