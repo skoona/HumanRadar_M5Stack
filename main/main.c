@@ -15,7 +15,8 @@
 #include "freertos/idf_additions.h"
 #include "freertos/projdefs.h"
 #include "freertos/semphr.h"
-#include "jpeg_decoder.h"
+#include "iot_button.h"
+// #include "jpeg_decoder.h"
 #include "lvgl.h"
 #include "nvs_flash.h"
 #include "protocol_examples_common.h"
@@ -29,8 +30,6 @@
 #include <string.h>
 #include <sys/stat.h>
 
-#define SAMPLE_FILE "/spiffs/doorbell_x.wav"
-#define GREETINGS_FILE "/spiffs/boxing_bell_multiple.wav"
 QueueHandle_t imageQueue;
 QueueHandle_t urlQueue;
 SemaphoreHandle_t xMutex;
@@ -40,8 +39,6 @@ extern httpd_handle_t start_http_listener(void);
 extern void wifi_init_sta(void);
 extern void unifi_async_api_request(esp_http_client_method_t method, char * path);
 extern void unifi_api_request_gt2k(esp_http_client_method_t method, char * path);
-extern void app_audio_init(void);
-extern void play_wave_file(char *path);
 static const char *TAG = "skoona.net";
 
 void standBy(char *message) {
@@ -64,7 +61,7 @@ void standBy(char *message) {
 
 	bsp_display_unlock();
 	
-	play_wave_file(SAMPLE_FILE);
+	// play_wave_file(SAMPLE_FILE);
 }
 
 /* List storage contents to console 
@@ -129,7 +126,8 @@ esp_err_t writeBinaryImageFile(char *path, void *buffer, int bufLen) {
 	}
 	return ESP_OK;
 }
-	/* Called on button press */
+
+/* Called on button press */
 static void btn_handler(void *button_handle, void *usr_data) {
 		static bool oneShot = false;
 		int button_index = (int)usr_data;
@@ -141,7 +139,6 @@ static void btn_handler(void *button_handle, void *usr_data) {
 			unifi_async_api_request(HTTP_METHOD_GET,
 									CONFIG_PROTECT_API_ENDPOINT);
 			fileList();
-			play_wave_file(SAMPLE_FILE);
 
 			break;
 		case 1:
@@ -161,7 +158,8 @@ static void btn_handler(void *button_handle, void *usr_data) {
 		}
 		oneShot = true;
 		ESP_LOGI(TAG, "Button %d pressed", button_index);
-	}
+
+}
 
 static void vURLTask(void *pvParameters) {
 	char url[288]; // Used to receive data
@@ -261,11 +259,11 @@ void app_main(void)
     /* Initialize display and LVGL */
     bsp_display_cfg_t cfg = {
 		.lvgl_port_cfg = ESP_LVGL_PORT_INIT_CONFIG(),
-        .buffer_size = BSP_LCD_H_RES * CONFIG_BSP_LCD_DRAW_BUF_HEIGHT,
-        .double_buffer = 0,
+        .buffer_size = BSP_LCD_H_RES * 100, // BSP_LCD_V_RES, 
+        .double_buffer = false,
         .flags = {
 			.buff_dma = true,
-            .buff_spiram = true,
+            .buff_spiram = false,
         }
     };
     lv_display_t *disp = bsp_display_start_with_config(&cfg);
@@ -291,23 +289,15 @@ void app_main(void)
 	bsp_display_unlock();
     bsp_display_backlight_on();
 	
-	/* Initialize all available buttons */
-	button_handle_t btns[BSP_BUTTON_NUM] = {NULL};
-	bsp_iot_button_create(btns, NULL, BSP_BUTTON_NUM);
-	
-	/* Register a callback for button press */
-	for (int i = 0; i < BSP_BUTTON_NUM; i++) {
-		iot_button_register_cb(btns[i], BUTTON_PRESS_DOWN, btn_handler, (void *) i);
-	}
-	
+	// /* Initialize all available buttons */
+	// button_handle_t btns[6] = {NULL};
+	// bsp_iot_button_create(btns, NULL, 6);
+
+	// /* Register a callback for button press */
+	// for (int i = 0; i < 5; i++) {
+	// 	iot_button_register_cb(btns[i], BUTTON_PRESS_DOWN, NULL, btn_handler, (void *) i);
+	// }
+
 	// Start the HTTP server
 	start_http_listener();
-
-	// show spiffs contents
-	fileList();
-
-	/* Initialize audio */
-	app_audio_init();
-
-	play_wave_file(GREETINGS_FILE);
 }
