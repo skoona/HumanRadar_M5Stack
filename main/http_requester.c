@@ -145,7 +145,6 @@ void unifi_async_api_request(esp_http_client_method_t method, char *path) {
         .is_async = true,
         .timeout_ms = 5000,
     };
-	standBy("Please StandBy...");
 
 	ESP_LOGI(TAG, "HTTPS async requests =>");
     esp_http_client_handle_t client = esp_http_client_init(&config);

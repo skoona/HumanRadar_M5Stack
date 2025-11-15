@@ -41,6 +41,7 @@ extern httpd_handle_t start_http_listener(void);
 extern void wifi_init_sta(void);
 extern void unifi_async_api_request(esp_http_client_method_t method, char * path);
 extern void unifi_api_request_gt2k(esp_http_client_method_t method, char * path);
+
 esp_err_t fileList();
 esp_err_t writeBinaryImageFile(char *path, void *buffer, int bufLen);
 
@@ -140,6 +141,7 @@ static void btn_handler(void *button_handle, void *usr_data) {
 			// Get All Cameras
 			unifi_async_api_request(HTTP_METHOD_GET,
 									CONFIG_PROTECT_API_ENDPOINT);
+			fileList();
 			break;
 		case 1:
 			if (oneShot) {
@@ -258,7 +260,7 @@ void app_main(void)
 	// Start the HTTP server
     start_http_listener();
 
-    // bsp_display_start();
+	// bsp_board_init();
 
     /* Initialize display and LVGL */
     bsp_display_cfg_t cfg = {
@@ -279,7 +281,7 @@ void app_main(void)
 	/* Mount SPIFFS */
 	bsp_spiffs_mount();
     // #define LV_USE_SJPG 1
-	// lv_split_jpeg_init();
+	lv_split_jpeg_init();
     esp_lv_decoder_handle_t decoder_handle = NULL;
     esp_lv_decoder_init(&decoder_handle); //Initialize this after lvgl starts
 	
@@ -301,10 +303,10 @@ void app_main(void)
 	for (int i = 0; i < BSP_BUTTON_NUM; i++) {
 	    iot_button_register_cb(btns[i], BUTTON_PRESS_DOWN, btn_handler, (void *) i);
 	}
-
-    // show spiffs contents
-    fileList();
 	
+	// show spiffs contents
+	fileList();
+
 	// ESP_LOGI(TAG, "Service LVGL loop");
 	// while (1) {
 	// 	lv_timer_handler();

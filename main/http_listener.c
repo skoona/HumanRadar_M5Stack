@@ -159,7 +159,7 @@ static void vServerRequestsTask(void *pvParameters) {
 	while (1) {
 		xReturn = xQueueReceive(serverQueue, &alarm, pdMS_TO_TICKS(3000));
 		if (xReturn == pdTRUE) {
-			ESP_LOGI(TAG, "Processing request from: %s", alarm.uri);
+			ESP_LOGI(TAG, "Processing HTTP_POST webhook from: %s", alarm.uri);
 			handleWebhookResult(alarm.path, alarm.content, alarm.content_type,
 								alarm.received_len);
 			free(alarm.content);
