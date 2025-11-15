@@ -15,6 +15,7 @@
 #include "freertos/idf_additions.h"
 #include "freertos/projdefs.h"
 #include "freertos/semphr.h"
+#include "jpeg_decoder.h"
 #include "lvgl.h"
 #include "nvs_flash.h"
 #include "protocol_examples_common.h"
@@ -28,6 +29,10 @@
 #include <string.h>
 #include <sys/stat.h>
 
+// #define SAMPLE_FILE "/spiffs/imperial_march.wav"
+// #define SAMPLE_FILE "/spiffs/boxing_bell_multiple.wav"
+#define SAMPLE_FILE "/spiffs/doorbell_x.wav"
+
 QueueHandle_t imageQueue;
 QueueHandle_t urlQueue;
 SemaphoreHandle_t xMutex;
@@ -37,7 +42,8 @@ extern httpd_handle_t start_http_listener(void);
 extern void wifi_init_sta(void);
 extern void unifi_async_api_request(esp_http_client_method_t method, char * path);
 extern void unifi_api_request_gt2k(esp_http_client_method_t method, char * path);
-
+extern void app_audio_init(void);
+extern void play_wave_file(char *path);
 static const char *TAG = "skoona.net";
 
 void standBy(char *message) {
@@ -59,6 +65,8 @@ void standBy(char *message) {
 	lv_obj_center(standby);
 
 	bsp_display_unlock();
+	
+	play_wave_file(SAMPLE_FILE);
 }
 
 /* List storage contents to console 
@@ -135,6 +143,8 @@ static void btn_handler(void *button_handle, void *usr_data) {
 			unifi_async_api_request(HTTP_METHOD_GET,
 									CONFIG_PROTECT_API_ENDPOINT);
 			fileList();
+			play_wave_file(SAMPLE_FILE);
+
 			break;
 		case 1:
 			if (oneShot) {
@@ -142,8 +152,7 @@ static void btn_handler(void *button_handle, void *usr_data) {
 				sprintf(url, "%s/65b2e8d400858f03e4014f3a/snapshot",
 						CONFIG_PROTECT_API_ENDPOINT);
 				xQueueSend(urlQueue, url, 10);
-			}
-			oneShot = true;
+			}			
 			break;
 		case 2:
 			// Get Front Door Snapshot -- BINARY
@@ -152,7 +161,7 @@ static void btn_handler(void *button_handle, void *usr_data) {
 			xQueueSend(urlQueue, url, 10);
 			break;
 		}
-
+		oneShot = true;
 		ESP_LOGI(TAG, "Button %d pressed", button_index);
 	}
 
@@ -299,9 +308,8 @@ void app_main(void)
 	// show spiffs contents
 	fileList();
 
-	// ESP_LOGI(TAG, "Service LVGL loop");
-	// while (1) {
-	// 	lv_timer_handler();
-	// 	vTaskDelay(pdMS_TO_TICKS(5));
-	// }
+	/* Initialize audio */
+	app_audio_init();
+
+	play_wave_file(SAMPLE_FILE);
 }
