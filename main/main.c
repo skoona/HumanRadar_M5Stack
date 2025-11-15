@@ -29,10 +29,8 @@
 #include <string.h>
 #include <sys/stat.h>
 
-// #define SAMPLE_FILE "/spiffs/imperial_march.wav"
-// #define SAMPLE_FILE "/spiffs/boxing_bell_multiple.wav"
 #define SAMPLE_FILE "/spiffs/doorbell_x.wav"
-
+#define GREETINGS_FILE "/spiffs/boxing_bell_multiple.wav"
 QueueHandle_t imageQueue;
 QueueHandle_t urlQueue;
 SemaphoreHandle_t xMutex;
@@ -311,5 +309,5 @@ void app_main(void)
 	/* Initialize audio */
 	app_audio_init();
 
-	play_wave_file(SAMPLE_FILE);
+	play_wave_file(GREETINGS_FILE);
 }
