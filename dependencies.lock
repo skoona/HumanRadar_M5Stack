@@ -69,6 +69,17 @@ dependencies:
       registry_url: https://components.espressif.com
       type: service
     version: 1.1.0
+  espressif/esp_jpeg:
+    component_hash: 
+      defb83669293cbf86d0fa86b475ba5517aceed04ed70db435388c151ab37b5d7
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=5.0'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 1.3.1
   espressif/esp_lcd_touch:
     component_hash: 
       779b4ba2464a3ae85681e4b860caa5fdc35801458c23f3039ee761bae7f442a4
@@ -240,11 +251,12 @@ dependencies:
     version: '*'
 direct_dependencies:
 - espressif/esp-box
+- espressif/esp_jpeg
 - espressif/esp_lv_decoder
 - espressif/esp_mmap_assets
 - hfudev/json
 - idf
 - protocol_examples_common
-manifest_hash: e6a18fa1a3c0d4e986e4c44cdd2486b0f93905652708ec5935e3a7ea94ce100e
+manifest_hash: 9f2bfca532c25436f5c9c9237b7bf14623a0f518704f670a1636bce0fc81f22d
 target: esp32s3
 version: 2.0.0

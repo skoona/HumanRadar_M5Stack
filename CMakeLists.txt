@@ -7,3 +7,7 @@ set(COMPONENTS main)
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 idf_build_set_property(MINIMAL_BUILD OFF)
 project(unifi_monitor)
+spiffs_create_partition_image(
+    storage 
+    ./spiffs 
+    FLASH_IN_PROJECT)

@@ -33,38 +33,31 @@ QueueHandle_t urlQueue;
 SemaphoreHandle_t xMutex;
 
 extern void	ui_skoona_page(lv_obj_t *scr);
-
-// Function to start the HTTP server
 extern httpd_handle_t start_http_listener(void); 
-
-// Example Wi-Fi initialization (replace with your actual Wi-Fi setup)
 extern void wifi_init_sta(void);
 extern void unifi_async_api_request(esp_http_client_method_t method, char * path);
 extern void unifi_api_request_gt2k(esp_http_client_method_t method, char * path);
 
-esp_err_t fileList();
-esp_err_t writeBinaryImageFile(char *path, void *buffer, int bufLen);
-
-
 static const char *TAG = "skoona.net";
 
 void standBy(char *message) {
-	if (message == NULL)
-		return;
-
-	lv_obj_t *standby;
 	static lv_style_t style_red;
+	lv_obj_t *standby;
 
+	if (message == NULL) return;
+	
 	bsp_display_lock(0);
+		
 	standby = lv_label_create(lv_scr_act());
 	lv_label_set_text(standby, message);
 	lv_obj_set_style_text_font(standby, &lv_font_montserrat_32, 0);
 	lv_style_init(&style_red);
 	lv_style_set_bg_color(&style_red, lv_color_make(128, 128, 128));
 	lv_style_set_bg_opa(&style_red, LV_OPA_COVER);
-	lv_style_set_text_color(&style_red, lv_color_make(0xff, 0x00, 0x00)); // Red color
+	lv_style_set_text_color(&style_red, lv_color_make(0xff, 0x00, 0x00)); // Red Color
 	lv_obj_add_style(standby, &style_red, LV_PART_MAIN);
 	lv_obj_center(standby);
+
 	bsp_display_unlock();
 }
 
@@ -257,53 +250,52 @@ void app_main(void)
 	} else {
 		ESP_LOGE(TAG, "Display Queues Failed.");
 	}
-	// Start the HTTP server
-    start_http_listener();
-
-	// bsp_board_init();
-
+	
     /* Initialize display and LVGL */
     bsp_display_cfg_t cfg = {
-        .lvgl_port_cfg = ESP_LVGL_PORT_INIT_CONFIG(),
+		.lvgl_port_cfg = ESP_LVGL_PORT_INIT_CONFIG(),
         .buffer_size = BSP_LCD_H_RES * CONFIG_BSP_LCD_DRAW_BUF_HEIGHT,
         .double_buffer = 0,
         .flags = {
-            .buff_dma = true,
+			.buff_dma = true,
             .buff_spiram = true,
         }
     };
     lv_display_t *disp = bsp_display_start_with_config(&cfg);
-
+	
     /* Set display brightness to 100% */
     bsp_display_backlight_on();
 	bsp_display_brightness_set(100);
-
-	/* Mount SPIFFS */
-	bsp_spiffs_mount();
-    // #define LV_USE_SJPG 1
-	lv_split_jpeg_init();
+    
+	// #define LV_USE_SJPG 1
+	// lv_split_jpeg_init();
     esp_lv_decoder_handle_t decoder_handle = NULL;
     esp_lv_decoder_init(&decoder_handle); //Initialize this after lvgl starts
-	
     lv_tick_set_cb(milliseconds);
-
+	
+	/* Mount SPIFFS */
+	bsp_spiffs_mount();
+	
 	bsp_display_lock(0);
 	screen = lv_disp_get_scr_act(disp);
-
+	
 	ui_skoona_page(screen);
-
+	
 	bsp_display_unlock();
     bsp_display_backlight_on();
-   
+	
 	/* Initialize all available buttons */
 	button_handle_t btns[BSP_BUTTON_NUM] = {NULL};
 	bsp_iot_button_create(btns, NULL, BSP_BUTTON_NUM);
 	
 	/* Register a callback for button press */
 	for (int i = 0; i < BSP_BUTTON_NUM; i++) {
-	    iot_button_register_cb(btns[i], BUTTON_PRESS_DOWN, btn_handler, (void *) i);
+		iot_button_register_cb(btns[i], BUTTON_PRESS_DOWN, btn_handler, (void *) i);
 	}
 	
+	// Start the HTTP server
+	start_http_listener();
+
 	// show spiffs contents
 	fileList();
 
