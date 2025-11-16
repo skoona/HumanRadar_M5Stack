@@ -289,14 +289,14 @@ void app_main(void)
 	bsp_display_unlock();
     bsp_display_backlight_on();
 	
-	// /* Initialize all available buttons */
-	// button_handle_t btns[6] = {NULL};
-	// bsp_iot_button_create(btns, NULL, 6);
+	/* Initialize all available buttons */
+	button_handle_t btns[6] = {NULL};
+	bsp_iot_button_create(btns, NULL, 6);
 
-	// /* Register a callback for button press */
-	// for (int i = 0; i < 5; i++) {
-	// 	iot_button_register_cb(btns[i], BUTTON_PRESS_DOWN, NULL, btn_handler, (void *) i);
-	// }
+	/* Register a callback for button press */
+	for (int i = 0; i < 5; i++) {
+		iot_button_register_cb(btns[i], BUTTON_PRESS_DOWN, NULL, btn_handler, (void *) i);
+	}
 
 	// Start the HTTP server
 	start_http_listener();
