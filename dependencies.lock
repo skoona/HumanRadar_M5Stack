@@ -204,6 +204,6 @@ direct_dependencies:
 - hfudev/json
 - idf
 - protocol_examples_common
-manifest_hash: fcb60f6aa9053173dd2d7c53f4e9c6c0128c747b5b9434cf1cfea7012f99ac5d
+manifest_hash: 52257f1b9ff1dc26d0f260a73533228475487509de2455cf4eb11b09418a1840
 target: esp32
 version: 2.0.0
