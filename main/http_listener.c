@@ -17,7 +17,7 @@
 
 static const char *TAG = "LISTENER";
 extern QueueHandle_t urlQueue;
-static QueueHandle_t serverQueue;
+QueueHandle_t serverQueue;
 extern esp_err_t writeBinaryImageFile(char *path, void *buffer, int bufLen);
 extern void standBy(char *message);
 typedef struct _alarmRequest {
@@ -151,7 +151,7 @@ esp_err_t handleWebhookResult(char *path, char *content, char *content_type, siz
 	return ESP_OK;
 }
 
-static void vServerRequestsTask(void *pvParameters) {
+void vServerRequestsTask(void *pvParameters) {
 	AlarmRequest alarm = {0};		// Used to receive data
 	BaseType_t xReturn; // Used to receive return value
 	QueueHandle_t serverQueue = pvParameters;
@@ -228,7 +228,9 @@ esp_err_t unifi_cb(httpd_req_t *req) {
 	size_t remaining_sz = total_len;
 	standBy("Please StandBy...");
 
-	content = calloc(content_len, sizeof(char)); // allocate 512KB
+	// content = calloc(content_len, sizeof(char));
+	// content = malloc(content_len);
+	content = (char *)heap_caps_malloc(content_len, MALLOC_CAP_DMA);
 	if (content == NULL) { // Error or connection closed
         httpd_resp_send_500(req); // alloc error
 		ESP_LOGE(TAG, "Receive Buffer Allocation Failed, req->content_len: %d, content_len:%d", req->content_len, content_len);
@@ -308,7 +310,7 @@ httpd_handle_t start_http_listener(void) {
 		serverQueue = xQueueCreate(8, sizeof(AlarmRequest));
 		if (serverQueue != NULL) {
 			xTaskCreatePinnedToCore(vServerRequestsTask, "vServerRequestsTask",
-									6144, serverQueue, 8, NULL,
+									3172, serverQueue, 8, NULL,
 									tskNO_AFFINITY);
 		}
 	}

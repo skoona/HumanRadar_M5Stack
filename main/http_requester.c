@@ -17,7 +17,7 @@ static const char *TAG = "REQUESTER";
 extern esp_err_t writeBinaryImageFile(char *path, void *buffer, int bufLen);
 extern void standBy(char *message);
 
-static esp_err_t _http_event_handler(esp_http_client_event_t *evt) {
+esp_err_t _http_event_handler(esp_http_client_event_t *evt) {
 	static char *output_buffer;  // Buffer to store response of http request from event handler
     static int output_len;       // Stores number of bytes read
     static bool image = false;   // Content type flag
@@ -50,8 +50,9 @@ static esp_err_t _http_event_handler(esp_http_client_event_t *evt) {
                 int content_len = esp_http_client_get_content_length(evt->client);
                 if (output_buffer == NULL) {
                     // We initialize output_buffer with 0 because it is used by strlen() and similar functions therefore should be null terminated.
-                    output_buffer = (char *) calloc(content_len + 4, sizeof(char)); 
-                    output_len = 0;
+                    // output_buffer = (char *) calloc(content_len + 4, sizeof(char));
+					output_buffer =	(char *)heap_caps_malloc(content_len+4, MALLOC_CAP_8BIT);
+					output_len = 0;
                     if (output_buffer == NULL) {
                         ESP_LOGE(TAG, "Failed to allocate memory for output buffer");
                         return ESP_FAIL;

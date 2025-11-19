@@ -128,7 +128,7 @@ esp_err_t writeBinaryImageFile(char *path, void *buffer, int bufLen) {
 }
 
 /* Called on button press */
-static void btn_handler(void *button_handle, void *usr_data) {
+void btn_handler(void *button_handle, void *usr_data) {
 		static bool oneShot = false;
 		int button_index = (int)usr_data;
 		char url[254];
@@ -161,7 +161,7 @@ static void btn_handler(void *button_handle, void *usr_data) {
 
 }
 
-static void vURLTask(void *pvParameters) {
+void vURLTask(void *pvParameters) {
 	char url[288]; // Used to receive data
 	BaseType_t xReturn; // Used to receive return value
     QueueHandle_t urlQueue = pvParameters;
@@ -176,7 +176,7 @@ static void vURLTask(void *pvParameters) {
 	}
 }
 
-static void vImageTask(void *pvParameters) {
+void vImageTask(void *pvParameters) {
 	char path[256];		// Used to receive data
 	char image[288] = {"S:"};
 	BaseType_t xReturn; // Used to receive return value
@@ -231,7 +231,7 @@ uint32_t milliseconds() {
 
 void app_main(void)
 {
-	static lv_obj_t *screen = NULL;
+	lv_obj_t *screen = NULL;
 
 	vTaskDelay(pdMS_TO_TICKS(4000));
 	xMutex = xSemaphoreCreateMutex();
@@ -245,28 +245,29 @@ void app_main(void)
     ESP_ERROR_CHECK(nvs_flash_init());
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
-    ESP_ERROR_CHECK(example_connect());
+
+	/* Initialize display and LVGL */	
+	bsp_display_cfg_t cfg = {
+		.lvgl_port_cfg = ESP_LVGL_PORT_INIT_CONFIG(),
+		.buffer_size = BSP_LCD_H_RES * (BSP_LCD_V_RES / 2),
+		.double_buffer = false,
+		.flags = {
+		    .buff_dma = true,
+			.buff_spiram = false,
+	    },
+	};
+	lv_display_t *disp = bsp_display_start_with_config(&cfg);
+
+	ESP_ERROR_CHECK(example_connect());
 
 	imageQueue = xQueueCreate(8, 256);
 	urlQueue = xQueueCreate(4, 256);
 	if (imageQueue != NULL) {
-		xTaskCreatePinnedToCore(vImageTask, "ImageTask", 6144, imageQueue, 16, NULL, tskNO_AFFINITY);
-		xTaskCreatePinnedToCore(vURLTask, "vURLTask", 6144, urlQueue, 4, NULL, tskNO_AFFINITY);
+		xTaskCreatePinnedToCore(vImageTask, "ImageTask", 3172, imageQueue, 16, NULL, tskNO_AFFINITY);
+		xTaskCreatePinnedToCore(vURLTask, "vURLTask", 3172, urlQueue, 4, NULL, tskNO_AFFINITY);
 	} else {
 		ESP_LOGE(TAG, "Display Queues Failed.");
 	}
-	
-    /* Initialize display and LVGL */
-    bsp_display_cfg_t cfg = {
-		.lvgl_port_cfg = ESP_LVGL_PORT_INIT_CONFIG(),
-        .buffer_size = BSP_LCD_H_RES * BSP_LCD_V_RES, 
-        .double_buffer = false,
-        .flags = {
-			.buff_dma = true,
-            .buff_spiram = true,
-        }
-    };
-    lv_display_t *disp = bsp_display_start_with_config(&cfg);
 	
     /* Set display brightness to 100% */
     bsp_display_backlight_on();
@@ -290,11 +291,12 @@ void app_main(void)
     bsp_display_backlight_on();
 	
 	/* Initialize all available buttons */
-	button_handle_t btns[6] = {NULL};
-	bsp_iot_button_create(btns, NULL, 6);
+#define BUTTON_NUM 3
+	button_handle_t btns[BUTTON_NUM] = {NULL};
+	bsp_iot_button_create(btns, NULL, BUTTON_NUM);
 
 	/* Register a callback for button press */
-	for (int i = 0; i < 5; i++) {
+	for (int i = 0; i < BUTTON_NUM; i++) {
 		iot_button_register_cb(btns[i], BUTTON_PRESS_DOWN, NULL, btn_handler, (void *) i);
 	}
 

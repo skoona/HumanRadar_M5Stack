@@ -26,7 +26,7 @@ static lv_color_t arc_color[] = {
     LV_COLOR_MAKE(90, 202, 228),
 };
 
-static void anim_timer_cb(lv_timer_t *timer)
+void anim_timer_cb(lv_timer_t *timer)
 {
     my_timer_context_t *timer_ctx = (my_timer_context_t *) lv_timer_get_user_data(timer);
     int count = timer_ctx->count_val;
