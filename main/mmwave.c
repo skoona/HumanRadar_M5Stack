@@ -5,6 +5,7 @@
  * file: main.c
  */
 
+#include "bsp/esp-bsp.h"
 #include "driver/gpio.h"
 #include "driver/ledc.h"
 #include "esp_log.h"
@@ -12,18 +13,17 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/idf_additions.h"
 #include "freertos/projdefs.h"
-#include "freertos/semphr.h"
 #include "freertos/task.h"
+#include "humanRadarRD_03D.h"
+#include "math.h"
+#include "ui_radar_display.h"
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
-#include "humanRadarRD_03D.h"
-#include"math.h"
 
-
-bool radar_targets_moved(radar_target_t *currentTargets, radar_target_t *priorTargets, int targetId) {
+bool hasTargetMoved(radar_target_t *currentTargets, radar_target_t *priorTargets, int targetId) {
 	if (currentTargets[targetId].detected && priorTargets[targetId].detected) {
 		float deltaX = currentTargets[targetId].x - priorTargets[targetId].x;
 		float deltaY = currentTargets[targetId].y - priorTargets[targetId].y;
@@ -79,6 +79,7 @@ void vRadarTask(void *pvParameters) {
 	ESP_LOGI("RD-03D", "Sensor is active, starting main loop.");
     // Main loop
     int target_count = 0;
+    bool hasMoved = false;
     while (1)
     {
         if (radar_sensor_update(&radar))
@@ -87,20 +88,25 @@ void vRadarTask(void *pvParameters) {
 			target_count = radar_sensor_get_targets(&radar, targets);
             for (int idx = 0; idx < target_count; idx++)
             {
-				if (radar_targets_moved(targets, priorTargets, idx)) {
-					ESP_LOGI("RD-03D", "[%d]Target detected at (%.1f, %.1f) mm, distance: %.1f mm", idx, targets[idx].x, targets[idx].y, targets[idx].distance);
-                    ESP_LOGI("RD-03D", "[%d]Position: %s", idx, targets[idx].position_description);
-                    ESP_LOGI("RD-03D", "[%d]Angle: %.1f degrees, Distance: %.1f mm, Speed: %.1f mm/s", idx, targets[idx].angle, targets[idx].distance, targets[idx].speed);
+                hasMoved = hasTargetMoved(targets, priorTargets, idx);
+				if (hasMoved) {
+                    ESP_LOGI("RD-03D", "[%d] X:%.0f Y:%.0f D:%.0f A:%.1f S:%.0f",
+                            idx, targets[idx].x, targets[idx].y,
+                            targets[idx].distance, targets[idx].angle,
+                            targets[idx].speed);					
 				}
+                // Add display update
+                bsp_display_lock(0);
+                radar_display_update(targets, idx, hasMoved);
+                bsp_display_unlock();
 			}
         }
-        vTaskDelay(pdMS_TO_TICKS(500));
+        vTaskDelay(pdMS_TO_TICKS(250));
     }
 }
 
 void start_mmwave(void *pvParameters)
 {
-    vTaskDelay(pdMS_TO_TICKS(1000));
-    esp_log_level_set("*", ESP_LOG_INFO);
-    xTaskCreatePinnedToCore(vRadarTask, "Radar Service", 4096, pvParameters, 10, NULL, 1);
+    vTaskDelay(pdMS_TO_TICKS(1000)); // Small delay to ensure LVGL processes the new objects
+	xTaskCreatePinnedToCore(vRadarTask, "Radar Service", 4096, pvParameters, 10, NULL, 1);
 }

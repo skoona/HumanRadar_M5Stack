@@ -8,17 +8,17 @@
 #include "esp_event.h"
 #include "esp_log.h"
 #include "esp_lv_decoder.h"
+#include "esp_lv_decoder.h"
 #include "esp_netif.h"
 #include "esp_system.h"
 #include "esp_timer.h"
 #include "freertos/idf_additions.h"
 #include "freertos/projdefs.h"
-#include "freertos/semphr.h"
 #include "iot_button.h"
 #include "lvgl.h"
 #include "nvs_flash.h"
 #include "protocol_examples_common.h"
-#include"esp_lv_decoder.h"
+#include "ui_radar_display.h"
 #include <dirent.h>
 #include <esp_heap_caps.h>
 #include <inttypes.h>
@@ -31,6 +31,10 @@
 extern void	ui_skoona_page(lv_obj_t *scr);
 extern void start_mmwave(void *pvParameters);
 static const char *TAG = "skoona.net";
+static lv_obj_t *screen = NULL;
+static lv_obj_t *radar = NULL;
+
+
 
 void logMemoryStats(char *message) {
 	char buffer[1024] = {0};
@@ -94,12 +98,13 @@ void btn_handler(void *button_handle, void *usr_data) {
 		switch (button_index) {
 		case 0:
 			fileList();
-			break;
-		case 1:
 			logMemoryStats("Button 1 pressed");
 			break;
+		case 1:
+			lv_scr_load(screen);
+			break;
 		case 2:
-			logMemoryStats("Button 2 pressed");
+			lv_scr_load(radar);
 			break;
 		}
 		ESP_LOGI(TAG, "Button %d pressed", button_index);
@@ -163,7 +168,11 @@ void app_main(void)
 
 	bsp_display_lock(0);
 		screen = lv_disp_get_scr_act(disp);
+		lv_scr_load(screen);
 		ui_skoona_page(screen);
+
+		radar = lv_disp_get_scr_act(disp);
+		radar_display_create_ui(radar); // Add this
 	bsp_display_unlock();
 
 	start_mmwave(NULL);
