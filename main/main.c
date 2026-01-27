@@ -118,7 +118,6 @@ void app_main(void)
 	static lv_obj_t *screen = NULL;
 	static lv_obj_t *radar = NULL;
 
-	vTaskDelay(pdMS_TO_TICKS(4000));
 	logMemoryStats("App Main started");
 
     esp_log_level_set("*", ESP_LOG_INFO);

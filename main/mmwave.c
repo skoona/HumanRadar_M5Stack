@@ -48,24 +48,19 @@ void vRadarTask(void *pvParameters) {
     while (!logoDone) {
 		vTaskDelay(pdMS_TO_TICKS(1000)); // wait for logo screen to finish
 	}
-	bsp_display_lock(0);
-        lv_obj_t *prior = lv_scr_act();
-        lv_scr_load((lv_obj_t *)pvParameters);
-        
-        lv_obj_clean(prior);
-        // lv_obj_del(prior);
 
-        lv_obj_set_style_bg_color(lv_scr_act(), lv_color_black(), LV_PART_MAIN);
-        lv_obj_set_style_bg_opa(lv_scr_act(), LV_OPA_COVER, LV_PART_MAIN);
-        radar_display_create_ui(lv_scr_act()); // Add this
+	bsp_display_lock(0);       
+        lv_obj_set_style_bg_color((lv_obj_t *)pvParameters, lv_color_black(), LV_PART_MAIN);
+        lv_obj_set_style_bg_opa((lv_obj_t *)pvParameters, LV_OPA_COVER, LV_PART_MAIN);
+		radar_display_create_ui((lv_obj_t *)pvParameters); // Add this
+		// Example: Slide left, 1000ms duration, 0ms delay
+		lv_screen_load_anim((lv_obj_t *)pvParameters, LV_SCR_LOAD_ANIM_MOVE_LEFT, 3000, 0, true);
 	bsp_display_unlock();
 
-	// Initialize the radar sensor
+    // Initialize the radar sensor
     esp_err_t ret = radar_sensor_init(&radar, CONFIG_UART_PORT, CONFIG_UART_RX_GPIO, CONFIG_UART_TX_GPIO);
-    if (ret != ESP_OK)
-    {
-        switch (ret)
-        {
+    if (ret != ESP_OK) {
+        switch (ret) {
         case ESP_OK:
             ESP_LOGI("RD-03D", "Initialization successful");
             break;
@@ -73,7 +68,8 @@ void vRadarTask(void *pvParameters) {
             ESP_LOGE("RD-03D", "Invalid arguments provided");
             break;
         default:
-            ESP_LOGE("RD-03D", "Initialization failed: %s", esp_err_to_name(ret));
+            ESP_LOGE("RD-03D", "Initialization failed: %s",
+                        esp_err_to_name(ret));
             break;
         }
         vTaskDelete(NULL);
