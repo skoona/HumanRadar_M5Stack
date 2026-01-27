@@ -1,15 +1,12 @@
 description: Unifi Motion Alerts Viewer
 dependencies:
   idf:
-    version: '^5.5.1'
+    version: '^5.5.2'
   protocol_examples_common:
     path: ${IDF_PATH}/examples/common_components/protocol_examples_common
   espressif/m5stack_core:
     version: '^2.0.2'
-  hfudev/json:
-    version: '^0.1.0'
   espressif/esp_lv_decoder: 
     version: '^0.3.0'
   espressif/esp_mmap_assets:
     version: '^1.4.0'
-#  esp_jpeg: '*'
