@@ -1,6 +1,7 @@
-set(SOURCES main.c ui_page01.c http_listener.c http_requester.c audio.c)
+set(SOURCES main.c ui_page01.c mmwave.c ui_radar_display.c)
+set(LIBS nvs_flash esp_netif esp-tls esp_event esp_wifi spiffs esp_timer humanRadarRD_03D)
 idf_component_register(
     SRCS ${SOURCES}
-	PRIV_REQUIRES nvs_flash esp_netif esp-tls esp_event esp_wifi esp_http_server esp_http_client spiffs esp_timer
+	PRIV_REQUIRES ${LIBS}
     INCLUDE_DIRS ".")
 
