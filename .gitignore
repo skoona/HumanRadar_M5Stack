@@ -2,3 +2,5 @@
 build/*
 managed_components/*
 .vscode
+logs/*
+dependencies.*
