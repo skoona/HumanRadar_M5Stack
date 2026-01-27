@@ -23,6 +23,8 @@
 #include <string.h>
 #include <sys/stat.h>
 
+extern bool logoDone;
+
 bool hasTargetMoved(radar_target_t *currentTargets, radar_target_t *priorTargets, int targetId) {
 	if (currentTargets[targetId].detected && priorTargets[targetId].detected) {
 		float deltaX = currentTargets[targetId].x - priorTargets[targetId].x;
@@ -42,6 +44,21 @@ void vRadarTask(void *pvParameters) {
     radar_sensor_t radar;
     radar_target_t targets[RADAR_MAX_TARGETS];
 	radar_target_t priorTargets[RADAR_MAX_TARGETS];
+	
+    while (!logoDone) {
+		vTaskDelay(pdMS_TO_TICKS(1000)); // wait for logo screen to finish
+	}
+	bsp_display_lock(0);
+        lv_obj_t *prior = lv_scr_act();
+        lv_scr_load((lv_obj_t *)pvParameters);
+        
+        lv_obj_clean(prior);
+        lv_obj_del(prior);
+
+        lv_obj_set_style_bg_color(lv_scr_act(), lv_color_black(), LV_PART_MAIN);
+        lv_obj_set_style_bg_opa(lv_scr_act(), LV_OPA_COVER, LV_PART_MAIN);
+        radar_display_create_ui(lv_scr_act()); // Add this
+	bsp_display_unlock();
 
 	// Initialize the radar sensor
     esp_err_t ret = radar_sensor_init(&radar, CONFIG_UART_PORT, CONFIG_UART_RX_GPIO, CONFIG_UART_TX_GPIO);
@@ -107,6 +124,5 @@ void vRadarTask(void *pvParameters) {
 
 void start_mmwave(void *pvParameters)
 {
-    vTaskDelay(pdMS_TO_TICKS(1000)); // Small delay to ensure LVGL processes the new objects
 	xTaskCreatePinnedToCore(vRadarTask, "Radar Service", 4096, pvParameters, 10, NULL, 1);
 }

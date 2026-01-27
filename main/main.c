@@ -31,10 +31,7 @@
 extern void	ui_skoona_page(lv_obj_t *scr);
 extern void start_mmwave(void *pvParameters);
 static const char *TAG = "skoona.net";
-static lv_obj_t *screen = NULL;
-static lv_obj_t *radar = NULL;
-
-
+bool logoDone = false; // control when radar screen is created
 
 void logMemoryStats(char *message) {
 	char buffer[1024] = {0};
@@ -98,13 +95,12 @@ void btn_handler(void *button_handle, void *usr_data) {
 		switch (button_index) {
 		case 0:
 			fileList();
-			logMemoryStats("Button 1 pressed");
 			break;
 		case 1:
-			lv_scr_load(screen);
+			logMemoryStats("Button 1 pressed");
 			break;
 		case 2:
-			lv_scr_load(radar);
+			logMemoryStats("Button 2 pressed");
 			break;
 		}
 		ESP_LOGI(TAG, "Button %d pressed", button_index);
@@ -119,7 +115,8 @@ uint32_t milliseconds() {
 
 void app_main(void)
 {
-	lv_obj_t *screen = NULL;
+	static lv_obj_t *screen = NULL;
+	static lv_obj_t *radar = NULL;
 
 	vTaskDelay(pdMS_TO_TICKS(4000));
 	logMemoryStats("App Main started");
@@ -166,15 +163,14 @@ void app_main(void)
 		iot_button_register_cb(btns[i], BUTTON_PRESS_DOWN, NULL, btn_handler, (void *) i);
 	}
 
+
 	bsp_display_lock(0);
 		screen = lv_disp_get_scr_act(disp);
+		radar = lv_disp_get_scr_act(disp);
 		lv_scr_load(screen);
 		ui_skoona_page(screen);
-
-		radar = lv_disp_get_scr_act(disp);
-		radar_display_create_ui(radar); // Add this
 	bsp_display_unlock();
 
-	start_mmwave(NULL);
+	start_mmwave(radar);
 	logMemoryStats("App Main startup complete");
 }

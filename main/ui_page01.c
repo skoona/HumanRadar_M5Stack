@@ -6,6 +6,8 @@
 
 
 #include "esp_lv_decoder.h"
+#include "freertos/idf_additions.h"
+#include "freertos/projdefs.h"
 #include "lvgl.h"
 #include <math.h>
 
@@ -18,6 +20,7 @@ typedef struct {
     int count_val;
 } my_timer_context_t;
 
+extern bool logoDone;
 static lv_obj_t *arc[3];
 static lv_obj_t *img_logo;
 static lv_obj_t *img_text;
@@ -67,6 +70,8 @@ void anim_timer_cb(lv_timer_t *timer)
     // Delete timer when all animation finished
     if ((count += 5) == 220) {
         lv_timer_del(timer);
+		vTaskDelay(pdMS_TO_TICKS(4000));
+		logoDone = true;
     } else {
         timer_ctx->count_val = count;
     }
