@@ -51,22 +51,32 @@ static lv_display_t *g_disp = NULL;
 Modify button handler:
 ```c
 void btn_handler(void *button_handle, void *usr_data) {
-    int button_index = (int)usr_data;
+	int button_index = (int)usr_data;
 
-    switch (button_index) {
-    case 0:
-        fileList();
-        break;
-    case 1:
-        logMemoryStats("Button 1 pressed");
-        break;
-    case 2:
-        // Button 2: Switch between list and sweep views
-        radar_switch_display_mode(g_disp);
-        ESP_LOGI(TAG, "Display mode switched");
-        break;
-    }
-    ESP_LOGI(TAG, "Button %d pressed", button_index);
+	switch (button_index) {
+	case 0:
+		// Button 0: Switch display mode
+		radar_switch_display_mode(g_disp);
+		break;
+	case 1:
+		// Button 1: Toggle sweep animation (only in sweep mode)
+		if (current_mode == DISPLAY_MODE_SWEEP) {
+			// You could add a static variable to track state
+			static bool animation_running = true;
+			if (animation_running) {
+				radar_sweep_stop_animation();
+				ESP_LOGI(TAG, "Sweep animation stopped");
+			} else {
+				radar_sweep_start_animation();
+				ESP_LOGI(TAG, "Sweep animation started");
+			}
+			animation_running = !animation_running;
+		}
+		break;
+	case 2:
+		logMemoryStats("Button 2 pressed");
+		break;
+	}
 }
 ```
 
@@ -114,14 +124,10 @@ void app_main(void)
         iot_button_register_cb(btns[i], BUTTON_PRESS_DOWN, NULL, btn_handler, (void *) i);
     }
 
-    // show logo screen first
-    bsp_display_lock(0);
-		screen = lv_obj_create(g_disp);
-		lv_scr_load(screen);
-		ui_skoona_page(screen);
-	bsp_display_unlock();
+	// Initialize radar display (starts in SWEEP mode)
+	radar_display_init(g_disp, DISPLAY_MODE_SWEEP);
 
-    start_mmwave(g_disp); // pass g_disp to mmwave
+    start_mmwave(NULL); 
     logMemoryStats("App Main startup complete");
 }
 ```
@@ -141,13 +147,6 @@ void vRadarTask(void *pvParameters) {
     radar_sensor_t radar;
     radar_target_t targets[RADAR_MAX_TARGETS];
     radar_target_t priorTargets[RADAR_MAX_TARGETS] = {0};
-
-	while (!logoDone) {
-		vTaskDelay(pdMS_TO_TICKS(1000)); // wait for logo screen to finish
-	}
-
-	// Initialize radar display (starts in SWEEP mode)
-	radar_display_init((lv_display_t *)pvParameters, DISPLAY_MODE_SWEEP);
 
     // Initialize radar sensor
     esp_err_t ret = radar_sensor_init(&radar, CONFIG_UART_PORT,

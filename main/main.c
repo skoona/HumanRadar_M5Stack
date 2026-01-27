@@ -31,7 +31,7 @@ extern void	ui_skoona_page(lv_obj_t *scr);
 extern void start_mmwave(void *pvParameters);
 static const char *TAG = "skoona.net";
 bool logoDone = false; // control when radar screen is created
-lv_display_t *g_disp = NULL;
+static lv_display_t *g_disp = NULL;
 
 void logMemoryStats(char *message) {
 	char buffer[1024] = {0};
@@ -52,61 +52,12 @@ void logMemoryStats(char *message) {
 			 buffer);
 }
 
-/* List storage contents to console 
-*/
-esp_err_t fileList() {
-	/* Get file name in storage */
-	struct dirent *p_dirent = NULL;
-	struct stat st;
-
-	DIR *p_dir_stream = opendir("/spiffs");
-    if (p_dir_stream == NULL) {
-		ESP_LOGE(TAG, "Failed to open mount: %s", "/spiffs");
-		return ESP_FAIL;
-	}
-
-    char files[256] = {"/spiffs/"};
-
-	/* Scan files in storage */
-	while (true) {
-		p_dirent = readdir(p_dir_stream);
-		if (NULL != p_dirent) {
-			strcpy(files, "/spiffs/");
-            strcat(files,p_dirent->d_name);
-            if (stat(files, &st) == 0) {
-				ESP_LOGI(TAG, "Filename: [%d] %s", st.st_size,
-						 p_dirent->d_name);
-			}
-			else {
-				ESP_LOGI(TAG, "Filename: %s", p_dirent->d_name);
-			}
-		} else {
-			closedir(p_dir_stream);
-			break;
-		}
-	}
-	return ESP_OK;
-}
-
-/* Called on button press */
+/**
+ * EXAMPLE: Modified button handler that switches displays
+ */
 void btn_handler(void *button_handle, void *usr_data) {
-		int button_index = (int)usr_data;
-
-		switch (button_index) {
-		case 0:
-			fileList();
-			break;
-		case 1:
-			logMemoryStats("Button 1 pressed");
-			break;
-		case 2:
-			radar_switch_display_mode(g_disp);
-			ESP_LOGI("BUTTON", "Display mode switched");
-			break;
-		}
-		ESP_LOGI(TAG, "Button %d pressed", button_index);
+	radar_btn_handler_example(button_handle, usr_data, g_disp);
 }
-
 
 // serivce lvgl events time requirements
 uint32_t milliseconds() {
@@ -162,13 +113,9 @@ void app_main(void)
 		iot_button_register_cb(btns[i], BUTTON_PRESS_DOWN, NULL, btn_handler, (void *) i);
 	}
 
-	bsp_display_lock(0);
-		screen = lv_obj_create(NULL);
-		lv_scr_load(screen);
-		ui_skoona_page(screen);
-	bsp_display_unlock();
+	// Initialize radar display system (starts in SWEEP mode)
+	radar_display_init(g_disp, DISPLAY_MODE_SWEEP);
 
-	// start_mmwave(radar);
-	start_mmwave(g_disp);
+	start_mmwave(NULL);
 	logMemoryStats("App Main startup complete");
 }

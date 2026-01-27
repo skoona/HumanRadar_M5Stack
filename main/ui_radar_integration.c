@@ -13,6 +13,8 @@
 #include "ui_radar_display.h"
 #include "ui_radar_sweep.h"
 
+extern void logMemoryStats(char *message);
+
 static const char *TAG = "RadarIntegration";
 
 // Display mode
@@ -34,8 +36,7 @@ void radar_switch_display_mode(lv_display_t *disp)
     bsp_display_lock(0);
 
     // Get the active screen
-	lv_obj_t *screen = lv_display_get_screen_active(NULL);
-	// lv_scr_load(screen);
+	lv_obj_t *screen = lv_disp_get_scr_act(disp);
 
 	// Clean up current display
     if (current_mode == DISPLAY_MODE_LIST) {
@@ -94,10 +95,9 @@ void radar_display_init(lv_display_t *disp, display_mode_t initial_mode)
 
     bsp_display_lock(0);
 
-    lv_obj_t *screen = lv_display_get_screen_active(NULL); // lv_disp_get_scr_act(disp);
+    lv_obj_t *screen = lv_disp_get_scr_act(disp);
     current_screen = screen;
-
-	// lv_scr_load(screen);
+    lv_scr_load(screen);
 
 	if (current_mode == DISPLAY_MODE_LIST) {
         radar_display_create_ui(screen);
@@ -149,7 +149,7 @@ void radar_btn_handler_example(void *button_handle, void *usr_data, lv_display_t
         break;
     case 2:
         // Button 2: Your custom action
-        ESP_LOGI(TAG, "Button 2 pressed");
+        logMemoryStats("Button 2 pressed");
         break;
     }
 }

@@ -47,14 +47,6 @@ void vRadarTask(void *pvParameters) {
 	radar_target_t targets[RADAR_MAX_TARGETS];
 	radar_target_t priorTargets[RADAR_MAX_TARGETS] = {0};
 
-    // wait for logo sceen to finish
-	while (!logoDone) {
-		vTaskDelay(pdMS_TO_TICKS(1000));
-	}
-
-	// Initialize radar display (starts in SWEEP mode)
-	radar_display_init((lv_display_t *)pvParameters, DISPLAY_MODE_SWEEP);
-
 	// Initialize radar sensor
 	esp_err_t ret = radar_sensor_init(&radar, CONFIG_UART_PORT,
 									  CONFIG_UART_RX_GPIO, CONFIG_UART_TX_GPIO);
@@ -86,30 +78,19 @@ void vRadarTask(void *pvParameters) {
 			target_count = radar_sensor_get_targets(&radar, targets);
 
 			// Update each target
+            bool hasMoved = false;
 			for (int idx = 0; idx < RADAR_MAX_TARGETS; idx++) {
-				bool hasMoved = false;
+				hasMoved = hasTargetMoved(targets, priorTargets, idx);
 
-				if (targets[idx].detected) {
-					// Check if target has moved significantly (>50mm in any
-					// direction)
-					if (!priorTargets[idx].detected ||
-						fabsf(targets[idx].x - priorTargets[idx].x) > 50.0f ||
-						fabsf(targets[idx].y - priorTargets[idx].y) > 50.0f) {
-						hasMoved = true;
-					}
-
+				if (hasMoved) {
 					// Update display
 					radar_update_current_display(targets, idx, hasMoved);
 
-					// Log movement
-					if (hasMoved) {
-						ESP_LOGI("mmWave",
-								 "[%d] X:%.0f Y:%.0f D:%.0f A:%.1f S:%.0f %s",
+					ESP_LOGI("Moving", "[%d] X:%.0f Y:%.0f D:%.0f A:%.1f S:%.0f %s",
 								 idx, targets[idx].x, targets[idx].y,
 								 targets[idx].distance, targets[idx].angle,
 								 targets[idx].speed,
 								 targets[idx].position_description);
-					}
 				} else if (priorTargets[idx].detected) {
 					// Target lost
 					radar_update_current_display(targets, idx, false);
