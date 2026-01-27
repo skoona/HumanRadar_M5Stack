@@ -356,7 +356,7 @@ void radar_sweep_stop_animation(void)
 void radar_sweep_start_animation(void)
 {
     if (!sweep_timer) {
-        sweep_timer = lv_timer_create(sweep_timer_cb, 50, NULL);
+        sweep_timer = lv_timer_create(sweep_timer_cb, 20, NULL);
     }
 }
 
