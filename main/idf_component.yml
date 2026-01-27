@@ -2,6 +2,7 @@ description: Unifi Motion Alerts Viewer
 dependencies:
   idf:
     version: '^5.5.2'
+  lvgl/lvgl: '^9.4.0'
   protocol_examples_common:
     path: ${IDF_PATH}/examples/common_components/protocol_examples_common
   espressif/m5stack_core:

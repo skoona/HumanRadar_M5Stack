@@ -8,7 +8,6 @@
 #include "esp_event.h"
 #include "esp_log.h"
 #include "esp_lv_decoder.h"
-#include "esp_lv_decoder.h"
 #include "esp_netif.h"
 #include "esp_system.h"
 #include "esp_timer.h"
@@ -18,7 +17,7 @@
 #include "lvgl.h"
 #include "nvs_flash.h"
 #include "protocol_examples_common.h"
-#include "ui_radar_display.h"
+#include "ui_radar_integration.h"
 #include <dirent.h>
 #include <esp_heap_caps.h>
 #include <inttypes.h>
@@ -32,6 +31,7 @@ extern void	ui_skoona_page(lv_obj_t *scr);
 extern void start_mmwave(void *pvParameters);
 static const char *TAG = "skoona.net";
 bool logoDone = false; // control when radar screen is created
+lv_display_t *g_disp = NULL;
 
 void logMemoryStats(char *message) {
 	char buffer[1024] = {0};
@@ -100,7 +100,8 @@ void btn_handler(void *button_handle, void *usr_data) {
 			logMemoryStats("Button 1 pressed");
 			break;
 		case 2:
-			logMemoryStats("Button 2 pressed");
+			radar_switch_display_mode(g_disp);
+			ESP_LOGI("BUTTON", "Display mode switched");
 			break;
 		}
 		ESP_LOGI(TAG, "Button %d pressed", button_index);
@@ -116,7 +117,6 @@ uint32_t milliseconds() {
 void app_main(void)
 {
 	static lv_obj_t *screen = NULL;
-	static lv_obj_t *radar = NULL;
 
 	logMemoryStats("App Main started");
 
@@ -137,7 +137,7 @@ void app_main(void)
 			.buff_spiram = false,
 	    },
 	};
-	lv_display_t *disp = bsp_display_start_with_config(&cfg);
+	g_disp = bsp_display_start_with_config(&cfg);
 
 	ESP_ERROR_CHECK(example_connect());
 	
@@ -162,14 +162,13 @@ void app_main(void)
 		iot_button_register_cb(btns[i], BUTTON_PRESS_DOWN, NULL, btn_handler, (void *) i);
 	}
 
-
 	bsp_display_lock(0);
-		screen = lv_disp_get_scr_act(disp);
-		radar = lv_disp_get_scr_act(disp);
+		screen = lv_obj_create(NULL);
 		lv_scr_load(screen);
 		ui_skoona_page(screen);
 	bsp_display_unlock();
 
-	start_mmwave(radar);
+	// start_mmwave(radar);
+	start_mmwave(g_disp);
 	logMemoryStats("App Main startup complete");
 }

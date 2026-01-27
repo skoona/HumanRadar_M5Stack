@@ -79,7 +79,7 @@ void anim_timer_cb(lv_timer_t *timer)
 
 void ui_skoona_page(lv_obj_t *scr)
 {
-    vTaskDelay(pdMS_TO_TICKS(1000)); // Small delay to ensure LVGL processes the new objects
+    vTaskDelay(pdMS_TO_TICKS(100)); // Small delay to ensure LVGL processes the new objects
     // Create image
     img_logo = lv_img_create(scr);
 	lv_img_set_src(img_logo, "S:/spiffs/skoona-devel-icon.png"); // &esp_logo);

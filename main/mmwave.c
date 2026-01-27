@@ -16,7 +16,9 @@
 #include "freertos/task.h"
 #include "humanRadarRD_03D.h"
 #include "math.h"
-#include "ui_radar_display.h"
+#include "ui_radar_integration.h"
+#include "ui_radar_sweep.h"
+#include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -41,81 +43,89 @@ bool hasTargetMoved(radar_target_t *currentTargets, radar_target_t *priorTargets
 }
 
 void vRadarTask(void *pvParameters) {
-    radar_sensor_t radar;
-    radar_target_t targets[RADAR_MAX_TARGETS];
-	radar_target_t priorTargets[RADAR_MAX_TARGETS];
-	
-    while (!logoDone) {
-		vTaskDelay(pdMS_TO_TICKS(1000)); // wait for logo screen to finish
+	radar_sensor_t radar;
+	radar_target_t targets[RADAR_MAX_TARGETS];
+	radar_target_t priorTargets[RADAR_MAX_TARGETS] = {0};
+
+    // wait for logo sceen to finish
+	while (!logoDone) {
+		vTaskDelay(pdMS_TO_TICKS(1000));
 	}
 
-	bsp_display_lock(0);       
-        lv_obj_set_style_bg_color((lv_obj_t *)pvParameters, lv_color_black(), LV_PART_MAIN);
-        lv_obj_set_style_bg_opa((lv_obj_t *)pvParameters, LV_OPA_COVER, LV_PART_MAIN);
-		radar_display_create_ui((lv_obj_t *)pvParameters); // Add this
-		// Example: Slide left, 1000ms duration, 0ms delay
-		lv_screen_load_anim((lv_obj_t *)pvParameters, LV_SCR_LOAD_ANIM_MOVE_LEFT, 3000, 0, true);
-	bsp_display_unlock();
+	// Initialize radar display (starts in SWEEP mode)
+	radar_display_init((lv_display_t *)pvParameters, DISPLAY_MODE_SWEEP);
 
-    // Initialize the radar sensor
-    esp_err_t ret = radar_sensor_init(&radar, CONFIG_UART_PORT, CONFIG_UART_RX_GPIO, CONFIG_UART_TX_GPIO);
-    if (ret != ESP_OK) {
-        switch (ret) {
-        case ESP_OK:
-            ESP_LOGI("RD-03D", "Initialization successful");
-            break;
-        case ESP_ERR_INVALID_ARG:
-            ESP_LOGE("RD-03D", "Invalid arguments provided");
-            break;
-        default:
-            ESP_LOGE("RD-03D", "Initialization failed: %s",
-                        esp_err_to_name(ret));
-            break;
-        }
-        vTaskDelete(NULL);
-    }
+	// Initialize radar sensor
+	esp_err_t ret = radar_sensor_init(&radar, CONFIG_UART_PORT,
+									  CONFIG_UART_RX_GPIO, CONFIG_UART_TX_GPIO);
+	if (ret != ESP_OK) {
+		ESP_LOGE("mmWave", "Radar initialization failed: %s", esp_err_to_name(ret));
+		vTaskDelete(NULL);
+	}
 
-    // Start UART communication
-    ret = radar_sensor_begin(&radar, CONFIG_UART_SPEED_BPS);
-    if (ret != ESP_OK)
-    {
-        ESP_LOGE("RD-03D", "Failed to start radar sensor");
-        vTaskDelete(NULL);
-    }
+	ret = radar_sensor_begin(&radar, CONFIG_UART_SPEED_BPS);
+	if (ret != ESP_OK) {
+		ESP_LOGE("mmWave", "Failed to start radar sensor");
+		vTaskDelete(NULL);
+	}
 
-    // tarck upto three targets -- return error if already in multi mode
-    radar_sensor_set_multi_target_mode(&radar, true);
+	// Configure radar
+	radar_sensor_set_multi_target_mode(&radar, true);
+	radar_sensor_set_retention_times(&radar, 10000, 500);
 
-	// Configure for security application (longer retention)
-	radar_sensor_set_retention_times(&radar, 10000, 500); // 10s detection, 0.5s absence
+	ESP_LOGI("mmWave", "Sensor is active, starting main loop.");
 
-	ESP_LOGI("RD-03D", "Sensor is active, starting main loop.");
-    // Main loop
-    int target_count = 0;
-    bool hasMoved = false;
-    while (1)
-    {
-        if (radar_sensor_update(&radar))
-        {
+	int target_count = 0;
+
+	while (1) {
+		if (radar_sensor_update(&radar)) {
+			// Save previous state
 			memcpy(priorTargets, targets, sizeof(targets));
+
+			// Get current targets
 			target_count = radar_sensor_get_targets(&radar, targets);
-            for (int idx = 0; idx < target_count; idx++)
-            {
-                hasMoved = hasTargetMoved(targets, priorTargets, idx);
-				if (hasMoved) {
-                    ESP_LOGI("RD-03D", "[%d] X:%.0f Y:%.0f D:%.0f A:%.1f S:%.0f",
-                            idx, targets[idx].x, targets[idx].y,
-                            targets[idx].distance, targets[idx].angle,
-                            targets[idx].speed);					
+
+			// Update each target
+			for (int idx = 0; idx < RADAR_MAX_TARGETS; idx++) {
+				bool hasMoved = false;
+
+				if (targets[idx].detected) {
+					// Check if target has moved significantly (>50mm in any
+					// direction)
+					if (!priorTargets[idx].detected ||
+						fabsf(targets[idx].x - priorTargets[idx].x) > 50.0f ||
+						fabsf(targets[idx].y - priorTargets[idx].y) > 50.0f) {
+						hasMoved = true;
+					}
+
+					// Update display
+					radar_update_current_display(targets, idx, hasMoved);
+
+					// Log movement
+					if (hasMoved) {
+						ESP_LOGI("mmWave",
+								 "[%d] X:%.0f Y:%.0f D:%.0f A:%.1f S:%.0f %s",
+								 idx, targets[idx].x, targets[idx].y,
+								 targets[idx].distance, targets[idx].angle,
+								 targets[idx].speed,
+								 targets[idx].position_description);
+					}
+				} else if (priorTargets[idx].detected) {
+					// Target lost
+					radar_update_current_display(targets, idx, false);
+					ESP_LOGI("mmWave", "[%d] Target lost", idx);
 				}
-                // Add display update
-                bsp_display_lock(0);
-                radar_display_update(targets, idx, hasMoved);
-                bsp_display_unlock();
 			}
-        }
-        vTaskDelay(pdMS_TO_TICKS(250));
-    }
+
+			// Update target count info (for sweep display)
+			if (radar_get_display_mode() == DISPLAY_MODE_SWEEP) {
+				bsp_display_lock(0);
+				radar_sweep_update_info(target_count);
+				bsp_display_unlock();
+			}
+		}
+		vTaskDelay(pdMS_TO_TICKS(500));
+	}
 }
 
 void start_mmwave(void *pvParameters)
