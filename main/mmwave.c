@@ -53,7 +53,7 @@ void vRadarTask(void *pvParameters) {
         lv_scr_load((lv_obj_t *)pvParameters);
         
         lv_obj_clean(prior);
-        lv_obj_del(prior);
+        // lv_obj_del(prior);
 
         lv_obj_set_style_bg_color(lv_scr_act(), lv_color_black(), LV_PART_MAIN);
         lv_obj_set_style_bg_opa(lv_scr_act(), LV_OPA_COVER, LV_PART_MAIN);
