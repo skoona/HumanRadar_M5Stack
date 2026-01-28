@@ -70,17 +70,6 @@ typedef struct
     radar_parser_state_t parser_state;
     radar_retention_t retention[RADAR_MAX_TARGETS]; // Target retention management
 } radar_sensor_t;
-/// <summary>
-/// struct representing the firmware version of the radar sensor (contains the firmware type, major, minor and bugfix parts of the version)
-/// </summary>
-// 0000 01 00 01000000
-typedef struct
-{
-    uint16_t type;   // firmware type
-    uint8_t minor;   // minor version of the radar firmware
-    uint8_t major;   // major version of the radar firmware
-    uint32_t bugfix; // bug fix version of the radar firmware
-} FirmwareVersion;
 
 #pragma pack(0)
 
@@ -96,7 +85,7 @@ void radar_sensor_deinit(radar_sensor_t *sensor);
 
 // Target retention configuration functions
 esp_err_t radar_sensor_set_multi_target_mode(radar_sensor_t *sensor, bool enable);
-esp_err_t radar_sensor_get_firmware_version(radar_sensor_t *sensor, FirmwareVersion *version);
+esp_err_t radar_sensor_get_firmware_version(radar_sensor_t *sensor, char *outVersionString);
 esp_err_t radar_sensor_set_baud_rate(radar_sensor_t *sensor, uint32_t baud_rate);
 void radar_sensor_set_retention_times(radar_sensor_t *sensor,
                                       uint32_t detection_retention_ms,

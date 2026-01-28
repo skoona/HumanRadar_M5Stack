@@ -51,21 +51,24 @@ void vRadarTask(void *pvParameters) {
 	esp_err_t ret = radar_sensor_init(&radar, CONFIG_UART_PORT,
 									  CONFIG_UART_RX_GPIO, CONFIG_UART_TX_GPIO);
 	if (ret != ESP_OK) {
-		ESP_LOGE("mmWave", "Radar initialization failed: %s", esp_err_to_name(ret));
+		ESP_LOGE("Radar", "Radar initialization failed: %s", esp_err_to_name(ret));
 		vTaskDelete(NULL);
 	}
 
 	ret = radar_sensor_begin(&radar, CONFIG_UART_SPEED_BPS);
 	if (ret != ESP_OK) {
-		ESP_LOGE("mmWave", "Failed to start radar sensor");
+		ESP_LOGE("Radar", "Failed to start radar sensor");
 		vTaskDelete(NULL);
 	}
 
 	// Configure radar
 	radar_sensor_set_multi_target_mode(&radar, true);
 	radar_sensor_set_retention_times(&radar, 10000, 500);
+    char versionString[32] = {0};
+    radar_sensor_get_firmware_version(&radar, versionString);
+    ESP_LOGI("Radar", "Radar Firmware Version: %s", versionString);
 
-	ESP_LOGI("mmWave", "Sensor is active, starting main loop.");
+	ESP_LOGI("Radar", "Sensor is active, starting main loop.");
 
 	int target_count = 0;
 
@@ -74,7 +77,7 @@ void vRadarTask(void *pvParameters) {
 			// Save previous state
 			memcpy(priorTargets, targets, sizeof(targets));
 
-			// Get current targets
+			// Get current targets, target_count = highest index + 1, from 0
 			target_count = radar_sensor_get_targets(&radar, targets);
 
 			// Update each target
@@ -82,19 +85,15 @@ void vRadarTask(void *pvParameters) {
 			for (int idx = 0; idx < RADAR_MAX_TARGETS; idx++) {
 				hasMoved = hasTargetMoved(targets, priorTargets, idx);
 
-				if (hasMoved) {
-					// Update display
-					radar_update_current_display(targets, idx, hasMoved);
+                // Update display
+                radar_update_current_display(targets, idx, hasMoved);
 
-					ESP_LOGI("Moving", "[%d] X:%.0f Y:%.0f D:%.0f A:%.1f S:%.0f %s",
+                if (hasMoved) {
+					ESP_LOGI("Radar", "[%d] X:%.0f Y:%.0f D:%.0f A:%.1f S:%.0f %s",
 								 idx, targets[idx].x, targets[idx].y,
 								 targets[idx].distance, targets[idx].angle,
 								 targets[idx].speed,
 								 targets[idx].position_description);
-				} else if (priorTargets[idx].detected) {
-					// Target lost
-					radar_update_current_display(targets, idx, false);
-					ESP_LOGI("mmWave", "[%d] Target lost", idx);
 				}
 			}
 

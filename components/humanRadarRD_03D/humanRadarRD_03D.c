@@ -75,6 +75,18 @@ typedef struct
     uint32_t parValue;       // 0x00 / 0x04 / 0x64
     FrameMarkerType trailer; // 04 03 02 01 == 0x01020304
 } REQframeSetSystemMode;
+/// <summary>
+/// struct representing the firmware version of the radar sensor (contains the
+/// firmware type, major, minor and bugfix parts of the version)
+/// </summary>
+// 0000 01 00 01000000
+typedef struct {
+	uint16_t type;	 // firmware type
+	uint8_t minor;	 // minor version of the radar firmware
+	uint8_t major;	 // major version of the radar firmware
+	uint32_t bugfix; // bug fix version of the radar firmware
+} FirmwareVersion;
+
 typedef struct // 8 bytes
 {
     uint16_t len;   // firmware type
@@ -331,7 +343,8 @@ esp_err_t radar_sensor_begin(radar_sensor_t *sensor, uint32_t baud_rate)
         return ret;
     }
 
-    ret = uart_driver_install(sensor->uart_port, 1024, 1024, 0, NULL, 0);
+    // device buffer is typically 64 bytes
+    ret = uart_driver_install(sensor->uart_port, 640, 640, 0, NULL, 0);
     if (ret != ESP_OK)
     {
         ESP_LOGE("mmWave", "Failed to install UART driver");
@@ -881,15 +894,19 @@ esp_err_t radar_sensor_set_config_mode(radar_sensor_t *sensor, bool enable) {
     }
 
     ESP_LOGI("mmWave", "%s config mode successful", enable ? "Entered" : "Exited");
+    if (enable) {
+        ACKframeCommandModeEnter *ackFrame = (ACKframeCommandModeEnter *)ack;
+        ESP_LOGI("mmWave", "Protocol version:%d, Buffer size: %d", ackFrame->protocolVer, ackFrame->bufferSize);        
+    }
     return ESP_OK;
 }
-esp_err_t radar_sensor_get_firmware_version(radar_sensor_t *sensor, FirmwareVersion *version)
+esp_err_t radar_sensor_get_firmware_version(radar_sensor_t *sensor, char *outVersionString)
 {
-    if (!sensor || !version) {
-        return ESP_ERR_INVALID_ARG;
-    }
+	if (!sensor || !outVersionString) {
+		return ESP_ERR_INVALID_ARG;
+	}
 
-    bool was_in_config_mode = sensor->configMode;
+	bool was_in_config_mode = sensor->configMode;
     if (!sensor->configMode) {
         ESP_ERROR_CHECK(radar_sensor_set_config_mode(sensor, true));
     }
@@ -901,22 +918,23 @@ esp_err_t radar_sensor_get_firmware_version(radar_sensor_t *sensor, FirmwareVers
         return ret;
     }
 
-    if (!was_in_config_mode) {
+	if (!was_in_config_mode) {
         ESP_ERROR_CHECK(radar_sensor_set_config_mode(sensor, false));
     }
 
-    // Parse version from ack
-    version->major = ack[12];
-    version->minor = ack[13];
-    version->bugfix = ack[14];
     // 9,8 = Status 0x00, 0x00
-    if (ack[8] != 0x00 || ack[9] != 0x00)
+    ACKframeFirmwareVersion *ackFrame = (ACKframeFirmwareVersion *)ack;
+    // if (ack[8] != 0x00 || ack[9] != 0x00)
+    if (ackFrame->ackStatus != 0)
     {
         ESP_LOGE("mmWave", "Error in ACK while getting firmware version");
         return ESP_FAIL;
     }
 
-    ESP_LOGI("mmWave", "Firmware Version: %d.%d.%d", version->major, version->minor, version->bugfix);
+
+    sprintf(outVersionString, "%d.%d.%ld", ackFrame->version.major, ackFrame->version.minor, ackFrame->version.bugfix);
+
+	ESP_LOGI("mmWave", "Firmware version: %d.%d.%ld", ackFrame->version.major, ackFrame->version.minor, ackFrame->version.bugfix);
     return ESP_OK;
 }
 esp_err_t radar_sensor_set_baud_rate(radar_sensor_t *sensor, uint32_t baud_rate) {

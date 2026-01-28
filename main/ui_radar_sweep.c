@@ -255,8 +255,8 @@ void radar_sweep_create_ui(lv_obj_t *parent)
     // Create target markers (hidden initially)
     for (int i = 0; i < RADAR_MAX_TARGETS; i++) {
         ui.target_markers[i] = lv_label_create(parent);
-        lv_label_set_text(ui.target_markers[i], LV_SYMBOL_USER);
-        lv_obj_set_style_text_color(ui.target_markers[i], lv_color_hex(0xFF0000), 0);
+		lv_label_set_text(ui.target_markers[i], LV_SYMBOL_WIFI "P");
+		lv_obj_set_style_text_color(ui.target_markers[i], lv_color_hex(0xFF0000), 0);
         lv_obj_set_style_text_font(ui.target_markers[i], &lv_font_montserrat_20, 0);
         lv_obj_add_flag(ui.target_markers[i], LV_OBJ_FLAG_HIDDEN);
 
@@ -270,7 +270,7 @@ void radar_sweep_create_ui(lv_obj_t *parent)
 
     // Create info label at top
     ui.info_label = lv_label_create(parent);
-    lv_label_set_text(ui.info_label, "Radar: 8m / ±60°");
+    lv_label_set_text(ui.info_label, "Radar: 8m +-60°");
     lv_obj_set_style_text_color(ui.info_label, lv_color_hex(0x00FF00), 0);
     lv_obj_set_style_text_font(ui.info_label, &lv_font_montserrat_12, 0);
     lv_obj_align(ui.info_label, LV_ALIGN_TOP_MID, 0, 5);
@@ -336,7 +336,7 @@ void radar_sweep_update(radar_target_t *targets, int targetId, bool hasMoved)
  */
 void radar_sweep_update_info(int target_count)
 {
-    lv_label_set_text_fmt(ui.info_label, "Radar: 8m / ±60° | Targets: %d", target_count);
+    lv_label_set_text_fmt(ui.info_label, "Radar: 8m +-60° | Targets: %d", target_count);
 }
 
 /**
@@ -356,7 +356,7 @@ void radar_sweep_stop_animation(void)
 void radar_sweep_start_animation(void)
 {
     if (!sweep_timer) {
-        sweep_timer = lv_timer_create(sweep_timer_cb, 20, NULL);
+        sweep_timer = lv_timer_create(sweep_timer_cb, 50, NULL);
     }
 }
 

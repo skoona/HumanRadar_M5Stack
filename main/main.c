@@ -67,8 +67,6 @@ uint32_t milliseconds() {
 
 void app_main(void)
 {
-	static lv_obj_t *screen = NULL;
-
 	logMemoryStats("App Main started");
 
     esp_log_level_set("*", ESP_LOG_INFO);
