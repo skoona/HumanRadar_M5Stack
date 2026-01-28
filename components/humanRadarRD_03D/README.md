@@ -1,7 +1,6 @@
-# ESP RD-03D Radar Sensor Component
-## Not accurate -- will be updated
+# Human Radar RD-03D ESP Compoent
 
-A comprehensive ESP-IDF component for interfacing with the AI-Thinker RD-03D radar sensor module, featuring advanced target detection, position tracking, and intelligent retention filtering.
+A comprehensive ESP-IDF component for interfacing with the AI-Thinker RD-03D radar sensor module, featuring advanced multi-target detection, position tracking, and intelligent retention filtering.
 
 ## Features
 
@@ -30,7 +29,7 @@ A comprehensive ESP-IDF component for interfacing with the AI-Thinker RD-03D rad
 ### Initialization
 
 ```c
-#include "esp_rd-03d.h"
+#include "humanRadarRD_03D.h"
 
 radar_sensor_t radar;
 radar_target_t targets[RADAR_MAX_TARGETS];
@@ -43,7 +42,7 @@ void app_main() {
         return;
     }
 
-    // Start UART communication
+    // Start UART communication -- defaults to single target mode
     ret = radar_sensor_begin(&radar, CONFIG_UART_SPEED_BPS);
     if (ret != ESP_OK) {
         ESP_LOGE("MAIN", "Failed to start radar sensor");
@@ -65,7 +64,7 @@ void app_main() {
                 }
             }
         }
-        vTaskDelay(pdMS_TO_TICKS(100));
+        vTaskDelay(pdMS_TO_TICKS(250));
     }
 }
 ```
@@ -312,12 +311,18 @@ Contributions are welcome! Please submit pull requests or issues through the Git
 ## References
 
 - **AI-Thinker RD-03D Datasheet**: [Official Technical Documentation](https://docs.ai-thinker.com/_media/rd-03d_specification.pdf)
-- **Arduino Implementation Guide**: [Detect and Track Humans with mmWave Radar on Arduino](https://core-electronics.com.au/guides/arduino/detect-and-track-humans-with-mmwave-radar-on-an-arduino/) - Core Electronics tutorial showing similar implementation concepts
+- **English Quick Start Guide**: [RD-03D Quick Start Guide](./docs/Rd-03D_V2quick_start_guide-en.pdf)
+- [Influencing Source 1](https://github.com/heronet/esp_rd-03d/tree/master)
+- [Influencing Source 2](https://github.com/Gjorgjevikj/HLK_LD2410/tree/master)
 
-## Support
 
-For technical support and questions:
+## License
 
-- GitHub Issues: [Repository Issues](https://github.com/heronet/esp_rd-03d/issues)
-- ESP32 Community Forums
-- Component Registry: heronet/esp_rd-03d
+This component is provided under the MIT License. See LICENSE file for details.
+
+## Contributing
+
+Contributions are welcome! Please submit pull requests or issues through the GitHub repository.
+
+## Author
+- [skoona](https://github.com/skoona)

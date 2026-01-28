@@ -27,21 +27,6 @@
 
 extern bool logoDone;
 
-bool hasTargetMoved(radar_target_t *currentTargets, radar_target_t *priorTargets, int targetId) {
-	if (currentTargets[targetId].detected && priorTargets[targetId].detected) {
-		float deltaX = currentTargets[targetId].x - priorTargets[targetId].x;
-		float deltaY = currentTargets[targetId].y - priorTargets[targetId].y;
-		float distanceMoved = sqrtf(deltaX * deltaX + deltaY * deltaY);
-        if (distanceMoved >= 75.0f)  // Movement threshold in mm
-        {
-            return true; // A target has moved beyond the threshold
-        }
-	} else if (currentTargets[targetId].detected != priorTargets[targetId].detected) {
-		return true; // Target appearance/disappearance is considered movement
-	}
-	return false; // No significant movement detected
-}
-
 void vRadarTask(void *pvParameters) {
     radar_sensor_t radar;
 	radar_target_t targets[RADAR_MAX_TARGETS];
@@ -84,8 +69,8 @@ void vRadarTask(void *pvParameters) {
 
 			// Update each target
             bool hasMoved = false;
-			for (int idx = 0; idx < RADAR_MAX_TARGETS; idx++) {
-				hasMoved = hasTargetMoved(targets, priorTargets, idx);
+			for (int idx = 0; idx < target_count; idx++) {
+				hasMoved = radar_sensor_hasTargetMoved(targets, priorTargets, idx);
 
                 // Update display
                 radar_update_current_display(targets, idx, hasMoved);

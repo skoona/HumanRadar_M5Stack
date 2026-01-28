@@ -128,6 +128,23 @@ uint8_t Config_End_CMD[12] = {0xFD, 0xFC, 0xFB, 0xFA, 0x02, 0x00, 0xFE, 0x00, 0x
 // Private function to update retention logic
 static void radar_sensor_update_retention(radar_sensor_t *sensor);
 
+// determine if a single target has moved
+bool radar_sensor_hasTargetMoved(radar_target_t *currentTargets,
+					radar_target_t *priorTargets, int targetId) {
+	if (currentTargets[targetId].detected && priorTargets[targetId].detected) {
+		float deltaX = currentTargets[targetId].x - priorTargets[targetId].x;
+		float deltaY = currentTargets[targetId].y - priorTargets[targetId].y;
+		float distanceMoved = sqrtf(deltaX * deltaX + deltaY * deltaY);
+		if (distanceMoved >= 75.0f) // Movement threshold in mm
+		{
+			return true; // A target has moved beyond the threshold
+		}
+	} else if (currentTargets[targetId].detected !=
+			   priorTargets[targetId].detected) {
+		return true; // Target appearance/disappearance is considered movement
+	}
+	return false; // No significant movement detected
+}
 // Position description functions
 void radar_sensor_update_position_description(radar_target_t *target)
 {

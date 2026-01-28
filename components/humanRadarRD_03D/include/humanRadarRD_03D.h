@@ -77,6 +77,7 @@ typedef struct
 esp_err_t radar_sensor_init(radar_sensor_t *sensor, uart_port_t uart_port, gpio_num_t rx_pin, gpio_num_t tx_pin);
 esp_err_t radar_sensor_begin(radar_sensor_t *sensor, uint32_t baud_rate);
 bool radar_sensor_update(radar_sensor_t *sensor);
+bool radar_sensor_hasTargetMoved(radar_target_t *currentTargets, radar_target_t *priorTargets, int targetId);
 int radar_sensor_get_target_count(radar_sensor_t *sensor);
 int radar_sensor_get_raw_target_count(radar_sensor_t *sensor) ;
 int radar_sensor_get_targets(radar_sensor_t *sensor, radar_target_t *targets);
