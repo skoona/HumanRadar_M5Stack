@@ -1,4 +1,4 @@
-# BSP: UniFi Protect Alarm Viewer
+# HumanRadar
 
 ## Overview
 
@@ -8,24 +8,27 @@
     <img src="./spiffs/skoona-devel-icon.png">
   </td>
   <td valign="top">
-Displays motion, people, and vehicle events triggered by UniFi Protect camera systems.  A Snapshot is display for the most recent events.  The home button retrieves the sna;shot for the "Front Door" camera.
+Tracks upto three people (or live entities), displaying X/Y position, speed, and distance on a textual or radar like display.
   </td>
 </tr>
 </table>
 
-## Build and Flash
+## Images
+![M5Stack Core](doc/M5STACK.jpg)
+![RD-3D](doc/RD-03D.webp)
+![Radar](doc/Radar.jpeg)
+![Detailed](doc/Detailed.jpeg)
 
-To build and flash the example for a specific `{board}` and `{port}`, use the following command:
+## Devices
+- [M5Stack Core V2.7](https://docs.m5stack.com/en/core/basic_v2.7)
+- [RD-03D mmWave](https://a.co/d/2Vktl3s)
 
-```
-idf.py -D SDKCONFIG_DEFAULTS=sdkconfig.bsp.{board} -p {port} flash monitor
-```
-Make sure the correct board name is set in the `main/idf_component.yml` file under the `dependencies` section.
+## Configuration
+- LVGL V9.4
+- ESP-IDF V5.52
+- skoona/humanRadarRD_03D  {component}
+- espressif/BSP  {M5StackCore SDK}
 
-## Launch Example
-
-You can also try this example using ESP Launchpad:
-
-<a href="https://espressif.github.io/esp-launchpad/?flashConfigURL=https://espressif.github.io/esp-bsp/config.toml&app=display-">
-    <img alt="Try it with ESP Launchpad" src="https://espressif.github.io/esp-launchpad/assets/try_with_launchpad.png" width="250" height="70">
-</a>
+## Author
+- skoona
+  
