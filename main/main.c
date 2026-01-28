@@ -91,8 +91,8 @@ void app_main(void)
 	ESP_ERROR_CHECK(example_connect());
 	
     /* Set display brightness to 100% */
-    bsp_display_backlight_on();
-	bsp_display_brightness_set(100);
+    // bsp_display_backlight_on();
+	// bsp_display_brightness_set(100);
     
     esp_lv_decoder_handle_t decoder_handle = NULL;
     esp_lv_decoder_init(&decoder_handle); //Initialize this after lvgl starts
