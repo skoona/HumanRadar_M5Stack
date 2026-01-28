@@ -111,6 +111,28 @@ void app_main(void)
 		iot_button_register_cb(btns[i], BUTTON_PRESS_DOWN, NULL, btn_handler, (void *) i);
 	}
 
+	// Show splash screen with Skoona logo animation
+	bsp_display_lock(0);
+	lv_obj_t *screen = lv_disp_get_scr_act(g_disp);
+	ui_skoona_page(screen);
+	bsp_display_unlock();
+
+	ESP_LOGI(TAG, "Splash screen displayed, waiting for animation to complete...");
+
+	// Wait for logo animation to complete
+	while (!logoDone) {
+		vTaskDelay(pdMS_TO_TICKS(100));
+	}
+
+	ESP_LOGI(TAG, "Animation complete, waiting 4 seconds...");
+	vTaskDelay(pdMS_TO_TICKS(4000));
+
+	// Clean up splash screen and initialize radar display
+	bsp_display_lock(0);
+	lv_obj_clean(screen);  // Remove all objects from screen
+	bsp_display_unlock();
+
+	ESP_LOGI(TAG, "Initializing radar display...");
 	// Initialize radar display system (starts in SWEEP mode)
 	radar_display_init(g_disp, DISPLAY_MODE_SWEEP);
 

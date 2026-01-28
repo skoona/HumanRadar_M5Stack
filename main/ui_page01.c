@@ -70,8 +70,7 @@ void anim_timer_cb(lv_timer_t *timer)
     // Delete timer when all animation finished
     if ((count += 5) == 220) {
         lv_timer_del(timer);
-		vTaskDelay(pdMS_TO_TICKS(4000));
-		logoDone = true;
+		logoDone = true;  // Signal that animation is complete
     } else {
         timer_ctx->count_val = count;
     }
