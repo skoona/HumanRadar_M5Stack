@@ -43,9 +43,10 @@ bool hasTargetMoved(radar_target_t *currentTargets, radar_target_t *priorTargets
 }
 
 void vRadarTask(void *pvParameters) {
-	radar_sensor_t radar;
+    radar_sensor_t radar;
 	radar_target_t targets[RADAR_MAX_TARGETS];
 	radar_target_t priorTargets[RADAR_MAX_TARGETS] = {0};
+    char versionString[32] = {0};
 
 	// Initialize radar sensor
 	esp_err_t ret = radar_sensor_init(&radar, CONFIG_UART_PORT,
@@ -62,11 +63,12 @@ void vRadarTask(void *pvParameters) {
 	}
 
 	// Configure radar
-	radar_sensor_set_multi_target_mode(&radar, true);
-	radar_sensor_set_retention_times(&radar, 10000, 500);
-    char versionString[32] = {0};
-    radar_sensor_get_firmware_version(&radar, versionString);
-    ESP_LOGI("Radar", "Radar Firmware Version: %s", versionString);
+	radar_sensor_set_config_mode(&radar, true);
+        radar_sensor_set_multi_target_mode(&radar, true);
+        radar_sensor_set_retention_times(&radar, 10000, 500);
+        radar_sensor_get_firmware_version(&radar, versionString);
+        ESP_LOGI("Radar", "Radar Firmware Version: %s", versionString);
+	radar_sensor_set_config_mode(&radar, false);
 
 	ESP_LOGI("Radar", "Sensor is active, starting main loop.");
 

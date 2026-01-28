@@ -97,7 +97,6 @@ void radar_display_init(lv_display_t *disp, display_mode_t initial_mode)
 
     lv_obj_t *screen = lv_disp_get_scr_act(disp);
     current_screen = screen;
-    // lv_scr_load(screen);
 
 	if (current_mode == DISPLAY_MODE_LIST) {
         radar_display_create_ui(screen);

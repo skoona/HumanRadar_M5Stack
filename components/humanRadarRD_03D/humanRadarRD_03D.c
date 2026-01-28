@@ -86,21 +86,18 @@ typedef struct {
 	uint8_t major;	 // major version of the radar firmware
 	uint32_t bugfix; // bug fix version of the radar firmware
 } FirmwareVersion;
-
-typedef struct // 8 bytes
-{
-    uint16_t len;   // firmware type
-    char verStr[6]; // version in string format
-} FirmwareVersionData;
-
 typedef struct 
 {
     FrameMarkerType header; // FD FC FB FA 0xfafbfcfd
     uint16_t ifDataLength;
     uint16_t commandReply;
     uint16_t ackStatus;
-    FirmwareVersion version;
-    FrameMarkerType trailer; // 04 03 02 01 0x01020304
+	uint16_t versionBytes; // version bytes length
+	uint16_t type;	 // firmware type
+	uint8_t  major;	 // major version of the radar firmware
+	uint8_t  minor;	 // minor version of the radar firmware
+	uint32_t bugfix; // bug fix version of the radar firmware
+	FrameMarkerType trailer; // 04 03 02 01 0x01020304
 } ACKframeFirmwareVersion;
 
 typedef struct 
@@ -819,6 +816,8 @@ esp_err_t Send_Command(radar_sensor_t *sensor, uint8_t *cmd, size_t cmd_len, uin
     if (!sensor || !cmd || cmd_len == 0) {
         return ESP_ERR_INVALID_ARG;
     }
+    
+    uart_flush_input(CONFIG_UART_PORT); // Clear UART buffer before sending command
 
     int bytes_written = uart_write_bytes(sensor->uart_port, (const char *)cmd, cmd_len);
     if (bytes_written < 0) {
@@ -924,18 +923,18 @@ esp_err_t radar_sensor_get_firmware_version(radar_sensor_t *sensor, char *outVer
 
     // 9,8 = Status 0x00, 0x00
     ACKframeFirmwareVersion *ackFrame = (ACKframeFirmwareVersion *)ack;
-    // if (ack[8] != 0x00 || ack[9] != 0x00)
     if (ackFrame->ackStatus != 0)
     {
         ESP_LOGE("mmWave", "Error in ACK while getting firmware version");
         return ESP_FAIL;
     }
 
+	sprintf(outVersionString, "%d.%d.%ld", ackFrame->major, ackFrame->minor,
+			(ackFrame->bugfix >= 32768 ? -1 : ackFrame->bugfix));
 
-    sprintf(outVersionString, "%d.%d.%ld", ackFrame->version.major, ackFrame->version.minor, ackFrame->version.bugfix);
-
-	ESP_LOGI("mmWave", "Firmware version: %d.%d.%ld", ackFrame->version.major, ackFrame->version.minor, ackFrame->version.bugfix);
-    return ESP_OK;
+	ESP_LOGI("mmWave", outVersionString);
+    
+	return ESP_OK;
 }
 esp_err_t radar_sensor_set_baud_rate(radar_sensor_t *sensor, uint32_t baud_rate) {
     if (!sensor) {

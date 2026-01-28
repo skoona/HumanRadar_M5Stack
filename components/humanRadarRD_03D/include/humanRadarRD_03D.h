@@ -84,6 +84,7 @@ int radar_sensor_get_raw_targets(radar_sensor_t *sensor, radar_target_t *targets
 void radar_sensor_deinit(radar_sensor_t *sensor);
 
 // Target retention configuration functions
+esp_err_t radar_sensor_set_config_mode(radar_sensor_t *sensor, bool enable);
 esp_err_t radar_sensor_set_multi_target_mode(radar_sensor_t *sensor, bool enable);
 esp_err_t radar_sensor_get_firmware_version(radar_sensor_t *sensor, char *outVersionString);
 esp_err_t radar_sensor_set_baud_rate(radar_sensor_t *sensor, uint32_t baud_rate);
