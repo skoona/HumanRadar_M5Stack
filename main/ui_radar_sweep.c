@@ -71,7 +71,12 @@ static void polar_to_screen(float distance_mm, float angle_deg, int16_t *x, int1
 static lv_obj_t *create_line(lv_obj_t *parent, int16_t x1, int16_t y1, int16_t x2, int16_t y2,
                              lv_color_t color, int16_t width, lv_opa_t opa)
 {
-    static lv_point_precise_t points[2];
+    // Allocate points on heap so each line has its own persistent array
+    lv_point_precise_t *points = lv_malloc(sizeof(lv_point_precise_t) * 2);
+    if (points == NULL) {
+        return NULL;
+    }
+
     points[0].x = x1;
     points[0].y = y1;
     points[1].x = x2;
@@ -162,6 +167,10 @@ static void create_radar_background(lv_obj_t *parent)
     }
 }
 
+// Persistent point arrays for sweep animation (avoids memory allocation in timer)
+static lv_point_precise_t shadow_points[30][2];
+static lv_point_precise_t sweep_points[2];
+
 /**
  * @brief Update sweep line position
  */
@@ -179,13 +188,12 @@ static void update_sweep_line(int16_t angle)
         int16_t end_x = RADAR_CENTER_X + (int16_t)(RADAR_RADIUS * sinf(angle_rad));
         int16_t end_y = RADAR_CENTER_Y - (int16_t)(RADAR_RADIUS * cosf(angle_rad));
 
-        static lv_point_precise_t points[2];
-        points[0].x = RADAR_CENTER_X;
-        points[0].y = RADAR_CENTER_Y;
-        points[1].x = end_x;
-        points[1].y = end_y;
+        shadow_points[i][0].x = RADAR_CENTER_X;
+        shadow_points[i][0].y = RADAR_CENTER_Y;
+        shadow_points[i][1].x = end_x;
+        shadow_points[i][1].y = end_y;
 
-        lv_line_set_points(ui.shadow_lines[i], points, 2);
+        lv_line_set_points(ui.shadow_lines[i], shadow_points[i], 2);
         lv_obj_set_style_line_opa(ui.shadow_lines[i], opacity, 0);
     }
 
@@ -194,13 +202,12 @@ static void update_sweep_line(int16_t angle)
     int16_t end_x = RADAR_CENTER_X + (int16_t)(RADAR_RADIUS * sinf(angle_rad));
     int16_t end_y = RADAR_CENTER_Y - (int16_t)(RADAR_RADIUS * cosf(angle_rad));
 
-    static lv_point_precise_t points[2];
-    points[0].x = RADAR_CENTER_X;
-    points[0].y = RADAR_CENTER_Y;
-    points[1].x = end_x;
-    points[1].y = end_y;
+    sweep_points[0].x = RADAR_CENTER_X;
+    sweep_points[0].y = RADAR_CENTER_Y;
+    sweep_points[1].x = end_x;
+    sweep_points[1].y = end_y;
 
-    lv_line_set_points(ui.sweep_line, points, 2);
+    lv_line_set_points(ui.sweep_line, sweep_points, 2);
 }
 
 /**
