@@ -106,7 +106,7 @@ void vRadarTask(void *pvParameters) {
 				bsp_display_unlock();
 			}
 		}
-		vTaskDelay(pdMS_TO_TICKS(100));
+		vTaskDelay(pdMS_TO_TICKS(200));
 	}
 }
 

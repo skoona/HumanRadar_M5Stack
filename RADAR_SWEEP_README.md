@@ -15,7 +15,7 @@ LVGL v9.4 radar sweep visualization for `radar_target_t` structure on 320x240 sc
 - **Range Labels**: Distance markers on display
 
 ### Target Display
-- **People Markers**: Person symbols (👤) for each detected target
+- **Target Markers**: WiFi+P symbols (📶P) for each detected target
 - **Color Coding by Distance**:
   - **Red**: Close range (0-2.4m) - Warning!
   - **Orange**: Medium range (2.4-4.8m) - Caution
@@ -179,29 +179,41 @@ void vRadarTask(void *pvParameters) {
 }
 ```
 
-#### Option B: Both Displays with Button Switching
+#### Option B: Both Displays with Button Switching (CURRENT IMPLEMENTATION)
 
 In `main.c`:
 ```c
-#include "ui_radar_display.h"
-#include "ui_radar_sweep.h"
+#include "ui_radar_integration.h"
 
-// Global display reference
+extern void ui_skoona_page(lv_obj_t *scr);
+bool logoDone = false;
 static lv_display_t *g_disp = NULL;
 
 void btn_handler(void *button_handle, void *usr_data) {
-    int button_index = (int)usr_data;
-
-    if (button_index == 0) {
-        // Button 0: Switch between list and sweep views
-        radar_switch_display_mode(g_disp);
-    }
+    radar_btn_handler_example(button_handle, usr_data, g_disp);
 }
 
 void app_main(void) {
     // ... initialization ...
 
     g_disp = bsp_display_start_with_config(&cfg);
+
+    // Show splash screen
+    bsp_display_lock(0);
+    lv_obj_t *screen = lv_disp_get_scr_act(g_disp);
+    ui_skoona_page(screen);
+    bsp_display_unlock();
+
+    // Wait for animation to complete
+    while (!logoDone) {
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+    vTaskDelay(pdMS_TO_TICKS(4000));  // 4 second delay
+
+    // Clean up and initialize radar display
+    bsp_display_lock(0);
+    lv_obj_clean(screen);
+    bsp_display_unlock();
 
     // Start in sweep mode
     radar_display_init(g_disp, DISPLAY_MODE_SWEEP);
@@ -238,10 +250,15 @@ void vRadarTask(void *pvParameters) {
 ## Performance Considerations
 
 ### Memory Usage
-- **Canvas Buffer**: ~150KB (320x240x2 bytes)
-- **UI Objects**: ~15 LVGL objects (~3-5KB)
-- **Total**: ~155KB
-- **Recommendation**: Use PSRAM for canvas buffer
+- **Radar Lines**: ~300 LVGL line objects (~60KB)
+  - 61 arc segments (outer border)
+  - 244 range ring segments (4 rings × 61 segments)
+  - 3 angle markers
+  - 30 shadow lines
+- **Target Markers**: 6 LVGL objects (~2KB)
+- **Labels**: 5 LVGL objects (~1KB)
+- **Total**: ~70-80KB
+- **Recommendation**: Enable PSRAM for lv_malloc() allocations
 
 ### CPU Usage
 - **Sweep Animation**: 20 FPS = 50ms per frame
@@ -251,8 +268,9 @@ void vRadarTask(void *pvParameters) {
 ### Optimization Tips
 1. **Reduce Sweep Speed**: Change `SWEEP_SPEED` to 2 or 1
 2. **Lower FPS**: Change timer from 50ms to 100ms
-3. **Simplify Shadow**: Reduce `shadow_arc_width` from 30 to 15
-4. **Static Background**: Redraw background only when needed
+3. **Simplify Shadow**: Use fewer shadow lines (15 instead of 30)
+4. **Fewer Line Segments**: Reduce arc/ring segments (31 instead of 61 for 4° steps)
+5. **Line Width**: Use thinner lines (width=1 instead of width=2)
 
 ## Customization
 
