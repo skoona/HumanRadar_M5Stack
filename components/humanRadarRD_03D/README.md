@@ -31,10 +31,12 @@ A comprehensive ESP-IDF component for interfacing with the AI-Thinker RD-03D rad
 ```c
 #include "humanRadarRD_03D.h"
 
-radar_sensor_t radar;
-radar_target_t targets[RADAR_MAX_TARGETS];
 
 void app_main() {
+    radar_sensor_t radar;
+    radar_target_t targets[RADAR_MAX_TARGETS];
+    radar_target_t priorTargets[RADAR_MAX_TARGETS];
+
     // Initialize the radar sensor
     esp_err_t ret = radar_sensor_init(&radar, CONFIG_UART_PORT, CONFIG_UART_RX_GPIO, CONFIG_UART_TX_GPIO);
     if (ret != ESP_OK) {
@@ -49,15 +51,29 @@ void app_main() {
         return;
     }
 
+	// Configure radar
+	radar_sensor_set_config_mode(&radar, true);
+        radar_sensor_set_multi_target_mode(&radar, true);
+        radar_sensor_set_retention_times(&radar, 10000, 500);
+        radar_sensor_get_firmware_version(&radar, versionString);
+        ESP_LOGI("Radar", "Radar Firmware Version: %s", versionString);
+	radar_sensor_set_config_mode(&radar, false);
+	
+    ESP_LOGI("Radar", "Sensor is active, starting main loop.");
+
     // Main loop
     int target_count = 0;
+    bool hasMoved = false;
     while (1) {
         if (radar_sensor_update(&radar)) {
-            target_count = radar_sensor_get_targets(&radar, targets);
+        	// Save previous state
+			memcpy(priorTargets, targets, sizeof(targets));
 
+            target_count = radar_sensor_get_targets(&radar, targets);
+            hasMoved = radar_sensor_radar_sensor_hasTargetMoved(targets,priorTargets, idx);
             for (int idx = 0; idx < target_count; idx++)
             {
-                if (targets[idx].detected) {
+                if (hasMoved) {
                     ESP_LOGI("RD-03D", "[%d]Target detected at (%.1f, %.1f) mm, distance: %.1f mm", idx, targets[idx].x, targets[idx].y, targets[idx].distance);
                     ESP_LOGI("RD-03D", "[%d]Position: %s", idx, targets[idx].position_description);
                     ESP_LOGI("RD-03D", "[%d]Angle: %.1f degrees, Distance: %.1f mm, Speed: %.1f mm/s", idx, targets[idx].angle, targets[idx].distance, targets[idx].speed);
@@ -81,7 +97,7 @@ esp_err_t radar_sensor_init(radar_sensor_t* sensor, uart_port_t uart_port, gpio_
 
 Initialize the radar sensor structure and configure pins.
 
-**Parameters:**
+**Parameters: see sdkconfig **
 
 - `sensor`: Pointer to radar sensor structure
 - `uart_port`: UART port number (e.g., UART_NUM_2)
@@ -112,6 +128,21 @@ bool radar_sensor_update(radar_sensor_t* sensor);
 Process incoming UART data and update target information.
 
 **Returns:** `true` if new data was processed, `false` otherwise
+
+#### `radar_sensor_hasTargetMoved()`
+
+```c
+bool radar_sensor_hasTargetMoved(radar_target_t *currentTargets, radar_target_t *priorTargets, int targetId);
+```
+**Parameters:**
+
+- `currentTargets`: Pointer to initialized radar Targets
+- `priorTargets`: Pointer to initialized (saved-prior) radar Targets
+- `targetId`: Index from 0-2 indicating current target.
+
+Determines if current target (targetId) has changed state.
+
+**Returns:** `true` if yes, of disappeared, `false` otherwise
 
 #### `radar_sensor_get_targets()`
 
