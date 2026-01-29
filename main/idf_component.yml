@@ -11,3 +11,6 @@ dependencies:
     version: '^0.3.0'
   espressif/esp_mmap_assets:
     version: '^1.4.0'
+  skoona/humanRadarRD_03D:
+        git: git@github.com:skoona/humanRadarRD_03D.git
+        version: "*"
