@@ -48,14 +48,16 @@ void vRadarTask(void *pvParameters) {
 	}
 
 	// Configure radar
-	radar_sensor_set_config_mode(&radar, true);
-        radar_sensor_set_multi_target_mode(&radar, true);
+	radar_sensor_set_config_mode(&radar, true);	
+        if(CONFIG_UART_MULTI_TARGET_MODE) {
+            radar_sensor_set_multi_target_mode(&radar, true);  // see sdkconfig: auto if config'ed
+        }
         radar_sensor_set_retention_times(&radar, 10000, 500);
         radar_sensor_get_firmware_version(&radar, versionString);
         ESP_LOGI("Radar", "Radar Firmware Version: %s", versionString);
 	radar_sensor_set_config_mode(&radar, false);
 
-	ESP_LOGI("Radar", "Sensor is active, starting main loop.");
+	ESP_LOGI("Radar", "starting main loop.");
 
 	int target_count = 0;
 
@@ -69,7 +71,7 @@ void vRadarTask(void *pvParameters) {
 
 			// Update each target
             bool hasMoved = false;
-			for (int idx = 0; idx < target_count; idx++) {
+			for (int idx = 0; idx < RADAR_MAX_TARGETS; idx++) {
 				hasMoved = radar_sensor_hasTargetMoved(targets, priorTargets, idx);
 
                 // Update display
