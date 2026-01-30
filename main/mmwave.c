@@ -93,7 +93,7 @@ void vRadarTask(void *pvParameters) {
 				bsp_display_unlock();
 			}
 		}
-		vTaskDelay(pdMS_TO_TICKS(200));
+		vTaskDelay(pdMS_TO_TICKS(10)); // 10h refresh rate and device has space for 2 32bytes records
 	}
 }
 
