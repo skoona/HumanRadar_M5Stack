@@ -46,17 +46,9 @@ void vRadarTask(void *pvParameters) {
 		ESP_LOGE("Radar", "Failed to start radar sensor");
 		vTaskDelete(NULL);
 	}
-#ifdef CONFIG_UART_MULTI_TARGET_MODE
-	bool multiMode = true;
-#else
-	bool multiMode = false;
-#endif
 
 	// Configure radar
 	radar_sensor_set_config_mode(&radar, true);	
-        if(multiMode) {
-            radar_sensor_set_multi_target_mode(&radar, true);  // see sdkconfig: auto if config'ed
-        }
         radar_sensor_set_retention_times(&radar, 10000, 500);
         radar_sensor_get_firmware_version(&radar, versionString);
         ESP_LOGI("Radar", "Radar Firmware Version: %s", versionString);
@@ -98,7 +90,7 @@ void vRadarTask(void *pvParameters) {
 				bsp_display_unlock();
 			}
 		}
-		vTaskDelay(pdMS_TO_TICKS(10)); // 10h refresh rate and device has space for 2 32bytes records
+		vTaskDelay(pdMS_TO_TICKS(110)); // 10hz refresh rate and device has space for 2 32bytes records
 	}
 }
 
